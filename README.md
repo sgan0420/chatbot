@@ -64,7 +64,16 @@ source venv/bin/activate  # On Windows, use venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-#### 3. Run the Backend Server
+#### 3. Create a .env File in /backend
+
+Create a .env file in the backend directory and add the OpenAI API key.
+Replace your-api-key-here with the actual key from Shijie.
+
+```bash
+OPENAI_API_KEY=your-api-key-here
+```
+
+#### 4. Run the Backend Server
 
 ```bash
 python app.py
