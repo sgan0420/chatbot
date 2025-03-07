@@ -1,3 +1,71 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #f3f4f6; /* gray-100 */
+  padding: 24px;
+  gap: 24px;
+}
+
+.bot-settings-form {
+  background-color: white;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 1024px; /* Adjust to match the cards */
+}
+
+.form-container {
+  display: flex;
+  flex-direction: row;
+}
+
+.bot-avatar {
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  border: 2px solid #ddd;
+  margin-right: 16px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.input,
+.select,
+.textarea {
+  border: 1px solid #ccc;
+  padding: 12px;
+  border-radius: 8px;
+  width: 100%;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.submit-button {
+  background-color: black;
+  color: white;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.submit-button:hover {
+  background-color: #333;
+}
+
 .App {
   text-align: center;
 }
