@@ -39,15 +39,17 @@ function UploadPage() {
   return (
     <div className="container">
       {/* Bot Settings Form */}
-      <BotSettingsForm />
+      <div className="bot-setting-container">
+        <BotSettingsForm />
+      </div>
 
       {/* Upload Section */}
-      <div className="bot-settings-form">
+      <div className="upload-data-form">
         <h2 className="text-xl font-semibold mb-4">Upload Your Data</h2>
 
         {/* Basic Upload Options */}
-        <h3 className="text-lg font-medium mb-2">Basic</h3>
-        <div className="grid-2">
+        <h3 className="text-lg font-medium mt-8 mb-6">Basic</h3>
+        <div className="upload-grid">
           {uploadOptions.basic.map((option, index) => (
             <UploadCard
               key={index}
@@ -58,8 +60,8 @@ function UploadPage() {
         </div>
 
         {/* Advanced Upload Options */}
-        <h3 className="text-lg font-medium mb-2">Advanced</h3>
-        <div className="grid-2">
+        <h3 className="text-lg font-medium mt-8 mb-6">Advanced</h3>
+        <div className="upload-grid">
           {uploadOptions.advanced.map((option, index) => (
             <UploadCard
               key={index}

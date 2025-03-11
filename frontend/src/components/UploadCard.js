@@ -1,4 +1,5 @@
 import { useState } from "react";
+import "../styles/UploadCard.css"; // Import the CSS file
 
 function UploadCard({ title, description, advanced = false }) {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -11,26 +12,22 @@ function UploadCard({ title, description, advanced = false }) {
   };
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow-md text-center">
-      <h4 className="text-md font-semibold">{title}</h4>
-      <p className="text-sm text-gray-600 mb-3">{description}</p>
+    <div className="upload-card">
+      <h4 className="upload-title">{title}</h4>
+      <p className="upload-description">{description}</p>
 
-      {advanced && (
-        <p className="text-blue-500 text-sm cursor-pointer mb-2">
-          View pricing
-        </p>
-      )}
+      {advanced && <p className="upload-pricing">View pricing</p>}
 
-      <label className="w-full block">
-        <input type="file" className="hidden" onChange={handleFileChange} />
-        <button className="w-full bg-black text-white py-2 rounded-md hover:bg-gray-800 transition">
-          Upload
-        </button>
+      <label className="upload-button-wrapper">
+        <input
+          type="file"
+          className="upload-input"
+          onChange={handleFileChange}
+        />
+        <button className="upload-button">Upload</button>
       </label>
 
-      {selectedFile && (
-        <p className="text-sm text-green-600 mt-2">Selected: {selectedFile}</p>
-      )}
+      {selectedFile && <p className="upload-file">Selected: {selectedFile}</p>}
     </div>
   );
 }

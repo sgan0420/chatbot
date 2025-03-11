@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "../App.css";
+import robot from "../assets/robot.jpeg";
 
 const BotSettingsForm = () => {
   const [botName, setBotName] = useState("");
@@ -17,7 +18,7 @@ const BotSettingsForm = () => {
   return (
     <div className="bot-settings-form">
       <div className="form-container">
-        <img src="/bot-avatar.png" alt="Bot Avatar" className="bot-avatar" />
+        <img src={robot} alt="Bot Avatar" className="bot-avatar" />
         <form onSubmit={handleSubmit} className="form">
           <input
             type="text"
