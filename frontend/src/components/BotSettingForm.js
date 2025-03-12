@@ -1,6 +1,7 @@
 import { useState } from "react";
 import "../App.css";
 import robot from "../assets/robot.jpeg";
+import { createChatbot } from "../services/apiService"; // Import API function
 
 const BotSettingsForm = () => {
   const [botName, setBotName] = useState("");
@@ -8,11 +9,37 @@ const BotSettingsForm = () => {
   const [aiModel, setAiModel] = useState("");
   const [language, setLanguage] = useState("");
   const [description, setDescription] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const botData = { botName, privacy, aiModel, language, description };
-    console.log("Bot Data Submitted:", botData);
+    setLoading(true);
+    setError(null);
+    setSuccessMessage("");
+
+    const botData = {
+      name: botName,
+      privacy,
+      aiModel,
+      language,
+      description,
+    };
+
+    try {
+      await createChatbot(botData);
+      setSuccessMessage("Chatbot settings saved successfully!");
+      setBotName("");
+      setPrivacy("");
+      setAiModel("");
+      setLanguage("");
+      setDescription("");
+    } catch (err) {
+      setError("Failed to save chatbot settings. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -22,10 +49,11 @@ const BotSettingsForm = () => {
         <form onSubmit={handleSubmit} className="form">
           <input
             type="text"
-            placeholder="Your bot’s name"
+            placeholder="Your bot's name"
             value={botName}
             onChange={(e) => setBotName(e.target.value)}
             className="input"
+            required
           />
 
           <div className="grid-2">
@@ -33,6 +61,7 @@ const BotSettingsForm = () => {
               value={privacy}
               onChange={(e) => setPrivacy(e.target.value)}
               className="select"
+              required
             >
               <option value="">Select Privacy</option>
               <option value="public">Public</option>
@@ -42,6 +71,7 @@ const BotSettingsForm = () => {
               value={aiModel}
               onChange={(e) => setAiModel(e.target.value)}
               className="select"
+              required
             >
               <option value="">Select AI Model</option>
               <option value="gpt-4">GPT-4</option>
@@ -53,6 +83,7 @@ const BotSettingsForm = () => {
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
             className="select"
+            required
           >
             <option value="">Select Language</option>
             <option value="english">English</option>
@@ -67,9 +98,14 @@ const BotSettingsForm = () => {
             className="textarea"
           />
 
-          <button type="submit" className="submit-button">
-            Save
+          <button type="submit" className="submit-button" disabled={loading}>
+            {loading ? "Saving..." : "Save"}
           </button>
+
+          {error && <p className="error-message">{error}</p>}
+          {successMessage && (
+            <p className="success-message">{successMessage}</p>
+          )}
         </form>
       </div>
     </div>
