@@ -1,38 +1,104 @@
-.App {
-  text-align: center;
-}
-
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+/* Upload page starts */
+.container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
+  min-height: 100vh;
+  min-width: 100vw;
+  background-color: #f3f4f6; /* gray-100 */
+  /* padding: 24px; */
+  gap: 48px;
+  width: 100%; /* Ensure full width */
+}
+
+.bot-setting-container {
+  display: flex;
+  flex-direction: row;
+  gap: 24px;
+  background-color: oklch(0.962 0.044 156.743); /* gray-100 */
+  width: 100%;
+  justify-content: center;
+  /* align-items: space-between; */
+  /* padding: 24px; */
+}
+
+.bot-settings-form {
+  background-color: white;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 1024px; /* Adjust to match the cards */
+  margin-top: 48px;
+  margin-bottom: 48px;
+  margin-left: 24px;
+  margin-right: 24px;
+}
+
+.upload-data-form {
+  background-color: white;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 1024px; /* Adjust to match the cards */
+  margin-bottom: 48px;
+  margin-left: 24px;
+  margin-right: 24px;
+}
+
+.upload-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* Ensures 3 items per row */
+  gap: 20px; /* Space between cards */
+}
+
+.form-container {
+  display: flex;
+  flex-direction: row;
+}
+
+.bot-avatar {
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  border: 2px solid #ddd;
+  margin-left: 32px;
+  margin-right: 50px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.input,
+.select,
+.textarea {
+  border: 1px solid #ccc;
+  padding: 12px;
+  border-radius: 8px;
+  width: 100%;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.submit-button {
+  background-color: black;
   color: white;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
 }
 
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.submit-button:hover {
+  background-color: #333;
 }

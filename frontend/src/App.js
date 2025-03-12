@@ -1,24 +1,24 @@
-import logo from "./logo.svg";
+import { Routes, Route } from "react-router-dom";
 import "./App.css";
+import Footer from "./components/Footer";
+import NavBar from "./components/NavBar";
+import UploadPage from "./pages/UploadPage";
+import AuthModal from "./components/AuthModal";
+// import Dashboard from "./pages/Dashboard"; // Add the Dashboard Page
+// import Home from "./pages/Home"; // Optional: A Home Page
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <>
+      <NavBar />
+      <Routes>
+        {/* <Route path="/" element={<Home />} /> */}
+        <Route path="/upload" element={<UploadPage />} />
+        {/* <Route path="/dashboard" element={<Dashboard />} /> */}
+      </Routes>
+      <AuthModal />
+      <Footer />
+    </>
   );
 }
 

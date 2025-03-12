@@ -1,0 +1,4 @@
+react-router-dom
+ -D tailwindcss postcss autoprefixer
+ express multer cors dotenv axios
+ lucide-react
