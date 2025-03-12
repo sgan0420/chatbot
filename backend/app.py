@@ -5,6 +5,7 @@ from flask_cors import CORS
 from flask import Flask, jsonify
 from exceptions.base_api_exception import BaseAPIException
 from api.auth_api import auth_api
+from api.rag_api import rag_api
 from models.response.response_wrapper import ErrorResponse
 
 
@@ -13,6 +14,7 @@ def create_app():
     CORS(app)
 
     app.register_blueprint(auth_api, url_prefix='/api/auth')
+    app.register_blueprint(rag_api, url_prefix='/api/rag')
 
     @app.route('/')
     def home():
