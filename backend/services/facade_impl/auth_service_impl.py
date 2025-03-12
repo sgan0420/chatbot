@@ -1,9 +1,10 @@
 from exceptions.auth_exception import AuthException
 from services.facade.auth_service import AuthService
 from config import get_supabase_client
-from utils.response import success
 from models.request.auth_request import SignupRequest, LoginRequest
 from gotrue.errors import AuthApiError
+from models.response.response_wrapper import SuccessResponse
+from models.response.auth_response import SignupResponse, LoginResponse
 
 
 class AuthServiceImpl(AuthService):
@@ -26,14 +27,16 @@ class AuthServiceImpl(AuthService):
         except AuthApiError as e:
             raise AuthException(str(e), 400)
 
-        if response.user is None:
+        if response.user is None or response.session is None:
             raise AuthException("Signup failed", 400)
 
-        return success(
-            {
-                "user": response.user.model_dump(),
-                "session": response.session.model_dump(),
-            }
+        signup_response = SignupResponse(
+            user=response.user, session=response.session
+        )
+
+        return (
+            SuccessResponse[SignupResponse](data=signup_response).model_dump(),
+            200,
         )
 
     def login(self, data: LoginRequest) -> tuple:
@@ -47,12 +50,14 @@ class AuthServiceImpl(AuthService):
         except AuthApiError as e:
             raise AuthException(str(e), 400)
 
-        if response.user is None:
+        if response.user is None or response.session is None:
             raise AuthException("Login failed", 400)
 
-        return success(
-            {
-                "user": response.user.model_dump(),
-                "session": response.session.model_dump(),
-            }
+        login_response = LoginResponse(
+            user=response.user, session=response.session
+        )
+
+        return (
+            SuccessResponse[LoginResponse](data=login_response).model_dump(),
+            200,
         )

@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
+from models.request.auth_request import LoginRequest, SignupRequest
 
 
 class AuthService(ABC):
     @abstractmethod
-    def signup(self, email: str, password: str) -> dict:
+    def signup(self, data: SignupRequest) -> tuple:
         pass
 
     @abstractmethod
-    def login(self, email: str, password: str) -> dict:
+    def login(self, data: LoginRequest) -> tuple:
         pass

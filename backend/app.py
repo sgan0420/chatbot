@@ -5,6 +5,7 @@ from flask_cors import CORS
 from flask import Flask, jsonify
 from exceptions.base_api_exception import BaseAPIException
 from api.auth_api import auth_api
+from models.response.response_wrapper import ErrorResponse
 
 
 def create_app():
@@ -19,9 +20,17 @@ def create_app():
 
     @app.errorhandler(BaseAPIException)
     def handle_custom_error(error: BaseAPIException) -> jsonify:
-        response = jsonify(error.to_dict())
-        response.status_code = error.status_code
-        return response
+        error_response = ErrorResponse(
+            success=False, message=error.message, data=error.data
+        )
+        return jsonify(error_response.model_dump()), error.status_code
+
+    # @app.errorhandler(Exception)
+    # def handle_generic_error(error: Exception) -> jsonify:
+    #     error_response = ErrorResponse[None](
+    #         success=False, message="An unexpected error occurred.", data=None
+    #     )
+    #     return jsonify(error_response.model_dump()), 500
 
     return app
 
