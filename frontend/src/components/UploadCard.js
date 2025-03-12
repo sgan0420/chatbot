@@ -3,9 +3,7 @@ import axios from "../services/api"; // Import the Axios instance
 import "../styles/UploadCard.css";
 
 function UploadCard({ title, description, advanced = false }) {
-  const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState(null);
   const fileInputRef = useRef(null); // Create a ref for the file input
 
   // Define allowed file types based on title
@@ -24,7 +22,6 @@ function UploadCard({ title, description, advanced = false }) {
   const handleFileChange = async (event) => {
     const file = event.target.files[0];
     if (file) {
-      setSelectedFile(file);
       await handleUpload(file); // Automatically trigger upload
     }
   };
@@ -37,7 +34,6 @@ function UploadCard({ title, description, advanced = false }) {
     if (!file) return;
 
     setIsUploading(true);
-    setUploadStatus(null);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -48,12 +44,9 @@ function UploadCard({ title, description, advanced = false }) {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      setUploadStatus(`Upload successful: ${response.data.message}`);
-      setSelectedFile(null);
+      alert(`Upload successful: ${response.data.message}`);
     } catch (error) {
-      setUploadStatus(
-        `Upload failed: ${error.response?.data || error.message}`,
-      );
+      alert(`Upload failed: ${error.response?.data || error.message}`);
     } finally {
       setIsUploading(false);
     }
@@ -72,7 +65,7 @@ function UploadCard({ title, description, advanced = false }) {
         onClick={handleUploadClick}
         disabled={isUploading}
       >
-        {isUploading ? "Uploading..." : "Upload"}
+        {isUploading ? "Uploading..." : "Select File"}
       </button>
 
       {/* Hidden File Input */}
@@ -83,14 +76,6 @@ function UploadCard({ title, description, advanced = false }) {
         accept={fileTypes[title] || "*"}
         onChange={handleFileChange} // Triggers upload automatically
       />
-
-      {uploadStatus && (
-        <p
-          className={`upload-status ${uploadStatus.includes("failed") ? "error" : "success"}`}
-        >
-          {uploadStatus}
-        </p>
-      )}
     </div>
   );
 }
