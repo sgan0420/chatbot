@@ -1,10 +1,10 @@
-from exceptions.auth_exception import AuthException
-from services.facade.auth_service import AuthService
 from config import get_supabase_client
-from models.request.auth_request import SignupRequest, LoginRequest
+from exceptions.auth_exception import AuthException
 from gotrue.errors import AuthApiError
+from models.request.auth_request import LoginRequest, SignupRequest
+from models.response.auth_response import LoginResponse, SignupResponse
 from models.response.response_wrapper import SuccessResponse
-from models.response.auth_response import SignupResponse, LoginResponse
+from services.facade.auth_service import AuthService
 
 
 class AuthServiceImpl(AuthService):
@@ -12,9 +12,9 @@ class AuthServiceImpl(AuthService):
         self.supabase = get_supabase_client()
 
     def signup(self, data: SignupRequest) -> tuple:
-        email = data.get('email')
-        password = data.get('password')
-        display_name = data.get('display_name')
+        email = data.get("email")
+        password = data.get("password")
+        display_name = data.get("display_name")
 
         try:
             response = self.supabase.auth.sign_up(
@@ -30,9 +30,7 @@ class AuthServiceImpl(AuthService):
         if response.user is None or response.session is None:
             raise AuthException("Signup failed", 400)
 
-        signup_response = SignupResponse(
-            user=response.user, session=response.session
-        )
+        signup_response = SignupResponse(user=response.user, session=response.session)
 
         return (
             SuccessResponse[SignupResponse](data=signup_response).model_dump(),
@@ -40,8 +38,8 @@ class AuthServiceImpl(AuthService):
         )
 
     def login(self, data: LoginRequest) -> tuple:
-        email = data.get('email')
-        password = data.get('password')
+        email = data.get("email")
+        password = data.get("password")
 
         try:
             response = self.supabase.auth.sign_in_with_password(
@@ -53,9 +51,7 @@ class AuthServiceImpl(AuthService):
         if response.user is None or response.session is None:
             raise AuthException("Login failed", 400)
 
-        login_response = LoginResponse(
-            user=response.user, session=response.session
-        )
+        login_response = LoginResponse(user=response.user, session=response.session)
 
         return (
             SuccessResponse[LoginResponse](data=login_response).model_dump(),

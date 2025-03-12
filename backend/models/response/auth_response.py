@@ -1,5 +1,5 @@
+from gotrue.types import Session, User
 from pydantic import BaseModel
-from gotrue.types import User, Session
 
 
 class SignupResponse(BaseModel):

@@ -1,15 +1,14 @@
-from flask import Blueprint, request, jsonify
-from services.facade_impl.auth_service_impl import AuthServiceImpl
-from models.request.auth_request import SignupRequest, LoginRequest
-from pydantic import ValidationError
+from flask import Blueprint, jsonify, request
+from models.request.auth_request import LoginRequest, SignupRequest
 from models.response.response_wrapper import ErrorResponse
+from pydantic import ValidationError
+from services.facade_impl.auth_service_impl import AuthServiceImpl
 
-
-auth_api = Blueprint('auth_api', __name__)
+auth_api = Blueprint("auth_api", __name__)
 auth_service = AuthServiceImpl()
 
 
-@auth_api.route('/signup', methods=['POST'])
+@auth_api.route("/signup", methods=["POST"])
 def signup():
     try:
         validated_data = SignupRequest(**request.json)
@@ -22,7 +21,7 @@ def signup():
         return jsonify(error_response.model_dump()), 422
 
 
-@auth_api.route('/login', methods=['POST'])
+@auth_api.route("/login", methods=["POST"])
 def login():
     try:
         validated_data = LoginRequest(**request.json)

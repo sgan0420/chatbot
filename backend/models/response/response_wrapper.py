@@ -1,7 +1,8 @@
-from pydantic import BaseModel
-from typing import TypeVar, Generic, Optional, Any
+from typing import Generic, Optional, TypeVar
 
-T = TypeVar('T')
+from pydantic import BaseModel
+
+T = TypeVar("T")
 
 
 class SuccessResponse(BaseModel, Generic[T]):

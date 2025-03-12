@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr, StringConstraints
 from typing import Annotated, Optional
 
+from pydantic import BaseModel, EmailStr, StringConstraints
 
 PasswordStr = Annotated[str, StringConstraints(min_length=6)]
 

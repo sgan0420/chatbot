@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+
 from models.request.auth_request import LoginRequest, SignupRequest
 
 

@@ -1,5 +1,6 @@
-from exceptions.base_api_exception import BaseAPIException
 from typing import Optional
+
+from exceptions.base_api_exception import BaseAPIException
 
 
 class AuthException(BaseAPIException):
