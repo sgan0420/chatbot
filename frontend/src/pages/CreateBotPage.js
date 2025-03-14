@@ -1,5 +1,8 @@
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import BotSettingsForm from "../components/BotSettingForm";
 import UploadCard from "../components/UploadCard";
+import "../styles/CreateBotPage.css";
 
 const uploadOptions = {
   basic: [
@@ -35,12 +38,45 @@ const uploadOptions = {
   ],
 };
 
-function UploadPage() {
+function CreateBotPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const queryParams = new URLSearchParams(location.search);
+  const botId = queryParams.get("id"); // Get bot ID from URL
+  const isEditMode = Boolean(botId); // If there's an ID, we're in edit mode
+
+  const [botData, setBotData] = useState({
+    name: "",
+    description: "",
+  });
+
+  // Fetch bot details if in edit mode
+  useEffect(() => {
+    if (isEditMode) {
+      // Simulate fetching bot details (replace with real API call)
+      setBotData({
+        name: `ChatBot ${botId}`,
+        description: `This is a placeholder description for bot ${botId}.`,
+      });
+    }
+  }, [botId, isEditMode]);
+
+  const handleSubmit = () => {
+    if (isEditMode) {
+      console.log("Updating bot:", botData);
+      alert("Bot updated successfully!");
+    } else {
+      console.log("Creating new bot:", botData);
+      alert("Bot created successfully!");
+    }
+    navigate("/bots"); // Redirect back to bots list
+  };
+
   return (
     <div className="container">
       {/* Bot Settings Form */}
       <div className="bot-setting-container">
-        <BotSettingsForm />
+        <BotSettingsForm botData={botData} setBotData={setBotData} />
       </div>
 
       {/* Upload Section */}
@@ -72,8 +108,13 @@ function UploadPage() {
           ))}
         </div>
       </div>
+
+      {/* Create or Save Button */}
+      <button className="create-save-button" onClick={handleSubmit}>
+        {isEditMode ? "Save" : "Create"}
+      </button>
     </div>
   );
 }
 
-export default UploadPage;
+export default CreateBotPage;
