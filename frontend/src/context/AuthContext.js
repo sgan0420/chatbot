@@ -32,12 +32,12 @@ export function AuthProvider({ children }) {
 
   const openSignIn = () => {
     setIsRegister(false);
-    setIsAuthOpen(true);
+    // setIsAuthOpen(true);
   };
 
   const openRegister = () => {
     setIsRegister(true);
-    setIsAuthOpen(true);
+    // setIsAuthOpen(true);
   };
 
   const toggleRegister = () => {

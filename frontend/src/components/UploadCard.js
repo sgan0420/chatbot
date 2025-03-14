@@ -65,7 +65,7 @@ function UploadCard({ title, description, advanced = false }) {
         onClick={handleUploadClick}
         disabled={isUploading}
       >
-        {isUploading ? "Uploading..." : "Select File"}
+        {isUploading ? "Uploading..." : "Upload"}
       </button>
 
       {/* Hidden File Input */}
