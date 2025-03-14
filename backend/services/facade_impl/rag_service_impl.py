@@ -16,6 +16,12 @@ from langchain.chat_models import ChatOpenAI
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
 from langchain.schema import Document
+from langchain.prompts import PromptTemplate
+from langchain.prompts.chat import (
+    ChatPromptTemplate,
+    SystemMessagePromptTemplate,
+    HumanMessagePromptTemplate,
+)
 
 # Local imports
 from services.facade.rag_service import RAGService
@@ -103,12 +109,34 @@ class RAGServiceImpl(RAGService):
     def _initialize_chain(self):
         """Initialize the conversation chain"""
         if self.vector_store:
+            # Define your custom system template
+            system_template = """You are a helpful AI assistant. Use the following pieces of context to answer the user's questions.
+            Always try to answer the question based on the context (the documents/vectors you have access to) and the current conversation.
+            If you don't know the answer, just notify the user to be more specific.
+                        
+            Context: {context}
+            
+            Current conversation:
+            {chat_history}
+            """
+            
+            # Create prompt templates
+            system_message_prompt = SystemMessagePromptTemplate.from_template(system_template)
+            human_template = "{question}"
+            human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
+            
+            chat_prompt = ChatPromptTemplate.from_messages([
+                system_message_prompt,
+                human_message_prompt,
+            ])
+            
             self.conversation_chain = ConversationalRetrievalChain.from_llm(
                 llm=ChatOpenAI(temperature=0.7, model_name="gpt-4o-mini"),
                 retriever=self.vector_store.as_retriever(search_kwargs={"k": 3}),
                 memory=self.memory,
+                combine_docs_chain_kwargs={"prompt": chat_prompt},
                 verbose=True
-            )
+        )
             logging.info("Conversation chain initialization completed")
         else:
             logging.error("Cannot initialize chain without vector store")
