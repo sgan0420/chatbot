@@ -14,7 +14,7 @@ def create_app():
     CORS(app)
 
     app.register_blueprint(auth_api, url_prefix='/api/auth')
-    app.register_blueprint(rag_api, url_prefix='/api/rag')
+    app.register_blueprint(rag_api, url_prefix='/api/rag') # http://127.0.0.1:5000/api/rag/...
 
     @app.route('/')
     def home():

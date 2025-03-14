@@ -1,8 +1,14 @@
 import os
 from typing import List
+from io import BytesIO
+import logging
+import requests
+
+# Third-party imports
 from dotenv import load_dotenv
 import pandas as pd
-from langchain.document_loaders import PyPDFLoader, UnstructuredWordDocumentLoader
+import docx
+from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
@@ -10,9 +16,8 @@ from langchain.chat_models import ChatOpenAI
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
 from langchain.schema import Document
-import logging
-from io import BytesIO
-import requests
+
+# Local imports
 from services.facade.rag_service import RAGService
 from models.request.rag_request import ProcessDocumentsRequest, ChatRequest
 from models.response.rag_response import ProcessDocumentsResponse, ChatResponse
@@ -65,6 +70,21 @@ class RAGServiceImpl(RAGService):
 
     def save_vector_store(self, path: str):
         """Save the vector store for future use"""
+        # There are two files saved, index.faiss and index.pkl
+        # index.faiss: contains the actual vector embeddings, stores the numerical vectors in FAISS's optimized format, used for similarity searching.
+        # index.pkl: contains the metadata and mapping information, stores the original texts and their metadata, maps vectors back to their original content.
+        # .faiss is "search engine" part and .pkl is lookup table.
+        # index.faiss:
+        # [0.1, 0.2, 0.3, ...] → Vector ID: 1
+        # [0.4, 0.5, 0.6, ...] → Vector ID: 2
+        # [0.7, 0.8, 0.9, ...] → Vector ID: 3
+        # index.pkl:
+        # Vector ID: 1 → {"text": "This is the first document", "source": "doc1.pdf"}
+        # Vector ID: 2 → {"text": "This is the second document", "source": "doc2.pdf"}
+        # Vector ID: 3 → {"text": "This is the third document", "source": "doc3.pdf"}
+
+        # Without .faiss, you can't perform similarity searches
+        # Without .pkl, you can't retrieve the original content that matches the vectors
         if self.vector_store:
             self.vector_store.save_local(path)
             logging.info(f"Vector store saved to {path}")
@@ -103,16 +123,19 @@ class RAGServiceImpl(RAGService):
             file_content = BytesIO(response.content)
             
             if filename.endswith('.pdf'):
-                loader = PyPDFLoader(file_content)
-                docs = loader.load()
-                for idx, page in enumerate(docs):
-                    page.metadata.update({
-                        "source": url,
-                        "page": idx + 1,
-                        "total_pages": len(docs)
-                    })
-                    if not page.page_content.strip():
-                        continue
+                pdf_reader = PdfReader(file_content)
+                docs = []
+                for idx, page in enumerate(pdf_reader.pages):
+                    text = page.extract_text()
+                    if text.strip():  # Skip empty pages
+                        docs.append(Document(
+                            page_content=text,
+                            metadata={
+                                "source": url,
+                                "page": idx + 1,
+                                "total_pages": len(pdf_reader.pages)
+                            }
+                        ))
                 logging.info(f"Successfully processed PDF file from URL: {url}")
                 
             elif filename.endswith('.txt'):
@@ -160,10 +183,18 @@ class RAGServiceImpl(RAGService):
                 logging.info(f"Successfully processed Excel file from URL: {url}")
                 
             elif filename.endswith(('.docx', '.doc')):
-                loader = UnstructuredWordDocumentLoader(file_content)
-                docs = loader.load()
-                for doc in docs:
-                    doc.metadata["source"] = url
+                doc = docx.Document(file_content)
+                content = []
+                for para in doc.paragraphs:
+                    if para.text.strip():  # Skip empty paragraphs
+                        content.append(para.text)
+                
+                # Join all paragraphs with newlines
+                full_content = '\n'.join(content)
+                docs = [Document(
+                    page_content=full_content,
+                    metadata={"source": url}
+                )]
                 logging.info(f"Successfully processed Word file from URL: {url}")
                 
             else:
@@ -204,15 +235,38 @@ class RAGServiceImpl(RAGService):
             splits = self.text_splitter.split_documents(documents)
             logging.info(f"Document splitting completed, generated {len(splits)} segments")
             
-            logging.info("Creating vector store...")
-            self.vector_store = FAISS.from_documents(
-                documents=splits,
-                embedding=self.embeddings
-            )
-            logging.info("Vector store creation completed")
+            # Check if vector store exists and load it
+            if self.vector_store is None and os.path.exists(os.path.join(VECTOR_STORE_PATH, "index.faiss")):
+                self.load_vector_store(VECTOR_STORE_PATH)
+                logging.info("Loaded existing vector store for appending new documents")
+
+            # Append new documents to the existing vector store
+            if self.vector_store:
+                self.vector_store.add_documents(splits)
+                logging.info("Appended new documents to the existing vector store")
+                # 'add_documents' method: 
+                # 1: Convert New Documents to Vectors. 
+                # 2: Add to Existing Index: the new vectors are appended to the existing FAISS index, the metadata is added to the existing pickle file, nothing in the existing store is modified or recomputed.
+                # It preserves all existing vectors and mappings. Efficiently adds new vectors without reprocessing old ones. Updates both .faiss and .pkl files.
+            else:
+                # Create a new vector store if none exists
+                logging.info("Creating vector store...")
+                self.vector_store = FAISS.from_documents(
+                    documents=splits,
+                    embedding=self.embeddings
+                )
+                logging.info("Created a new vector store with the new documents")
+                # # 1. Vector Embedding (what OpenAIEmbeddings does)
+                # embedded_vectors = []
+                # for doc in splits:
+                #     vector = self.embeddings.embed_query(doc.page_content)
+                #     embedded_vectors.append(vector)
+
+                # # 2. Vector Storage (what FAISS does)
+                # vector_store = FAISS.create_index(embedded_vectors) # save the vector store to a file
+                # # LangChain conveniently combines these steps in the 'from_documents' method
 
             self.save_vector_store(VECTOR_STORE_PATH)
-            logging.info(f"Vector store saved to {VECTOR_STORE_PATH}")
 
             self._initialize_chain()
             
