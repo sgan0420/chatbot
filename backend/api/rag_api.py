@@ -20,6 +20,7 @@ def process_documents():
         validated_data = ProcessDocumentsRequest(**request.json)
         response, status_code = rag_service.process_documents_from_urls(validated_data)
         return jsonify(response), status_code
+    # TODO: Handle errors in global error handler
     except ValidationError as e:
         error_response = ErrorResponse(
             success=False,
