@@ -7,7 +7,7 @@ import "../styles/NavBar.css";
 
 function NavBar() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { user, logout, openSignIn, openRegister } = useAuth(); // Remove modal handlers
+  const { user, logout, openSignIn, openRegister } = useAuth();
   const navigate = useNavigate(); // Initialize navigation
 
   return (
@@ -35,7 +35,9 @@ function NavBar() {
           <div className="auth-buttons">
             {user ? (
               <>
-                <span className="user-email">{user.email}</span>
+                <span className="user-display-name">
+                  {user.user_metadata?.display_name || user.email}
+                </span>
                 <button className="logout-button" onClick={logout}>
                   Logout
                 </button>
