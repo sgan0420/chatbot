@@ -1,7 +1,6 @@
 import logging
 
-from flask import Blueprint, g, jsonify, request
-from chatbot.backend.config import get_supabase_client
+from flask import Blueprint, jsonify, request, g
 from models.request.rag_request import ChatRequest, ProcessDocumentsRequest
 from models.response.response_wrapper import ErrorResponse
 from pydantic import ValidationError
@@ -21,33 +20,10 @@ rag_service = RAGServiceImpl()
 @require_auth
 def process_documents():
     try:
-        chatbot_id = request.json.get('chatbot_id')
-        if not chatbot_id:
-            return jsonify(ErrorResponse(
-                message="chatbot_id is required"
-            ).model_dump()), 400
-            
-        # Create Supabase client with user token
-        supabase = get_supabase_client(g.user_token)
-        
-        # Get document URLs from documents table for this chatbot
-        result = supabase.table('documents') \
-            .select('file_url') \
-            .eq('chatbot_id', chatbot_id) \
-            .execute()
-            
-        if not result.data:
-            return jsonify(ErrorResponse(
-                message="No documents found for this chatbot"
-            ).model_dump()), 404
-            
-        # Extract URLs from the result
-        urls = [doc['file_url'] for doc in result.data]
-        
-        # Create request data with the retrieved URLs
-        validated_data = ProcessDocumentsRequest(urls=urls)
-        response, status_code = rag_service.process_documents_from_urls(validated_data)
+        validated_data = ProcessDocumentsRequest(**request.json)
+        response, status_code = rag_service.process_documents_from_urls(validated_data, g.user_token)
         return jsonify(response), status_code
+    # TODO: Handle errors in global error handler
     except ValidationError as e:
         error_response = ErrorResponse(
             success=False,
@@ -63,6 +39,7 @@ def process_documents():
         return jsonify(error_response.model_dump()), 500
 
 @rag_api.route("/chat", methods=["POST"])
+@require_auth
 def chat():
     try:
         validated_data = ChatRequest(**request.json)

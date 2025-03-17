@@ -1,35 +1,34 @@
-import os
-from typing import List
-from io import BytesIO
 import logging
-import requests
+import os
+import tempfile
+from io import BytesIO
+from typing import List
 
-# Third-party imports
-from dotenv import load_dotenv
-import pandas as pd
 import docx
-from PyPDF2 import PdfReader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.chat_models import ChatOpenAI
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
-from langchain.schema import Document
-from langchain.prompts import PromptTemplate
-from langchain.prompts.chat import (
-    ChatPromptTemplate,
-    SystemMessagePromptTemplate,
-    HumanMessagePromptTemplate,
-)
+import pandas as pd
+import requests
+from config import get_supabase_client
 
-# Local imports
+from dotenv import load_dotenv
+from langchain.chains import ConversationalRetrievalChain
+from langchain.chat_models import ChatOpenAI
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.memory import ConversationBufferMemory
+from langchain.prompts import PromptTemplate
+from langchain.prompts.chat import (ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate,
+)
+from langchain.schema import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.vectorstores import FAISS
+from models.request.rag_request import ChatRequest, ProcessDocumentsRequest
+from models.response.rag_response import ChatResponse, ProcessDocumentsResponse
+from models.response.response_wrapper import ErrorResponse, SuccessResponse
+from PyPDF2 import PdfReader
+
 from services.facade.rag_service import RAGService
-from models.request.rag_request import ProcessDocumentsRequest, ChatRequest
-from models.response.rag_response import ProcessDocumentsResponse, ChatResponse
-from models.response.response_wrapper import SuccessResponse, ErrorResponse
 
 VECTOR_STORE_PATH = "vector_store"
+BUCKET_NAME = "DOCUMENTS"
 
 # Configure logging
 logging.basicConfig(
@@ -39,20 +38,13 @@ logging.basicConfig(
 
 class RAGServiceImpl(RAGService):
     def __init__(self):
-        # Load environment variables from .env file
         load_dotenv()
-        # Ensure OPENAI_API_KEY exists in environment variables
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("Please set OPENAI_API_KEY in the .env file")
         
-        try:
-            self.embeddings = OpenAIEmbeddings()
-            logging.info("Successfully initialized OpenAI Embeddings")
-        except Exception as e:
-            logging.error(f"Failed to initialize OpenAI Embeddings: {str(e)}")
-            raise
-            
+        self.supabase = None
+        self.embeddings = OpenAIEmbeddings()
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=200,
@@ -60,22 +52,11 @@ class RAGServiceImpl(RAGService):
         )
         self.vector_store = None
         self.conversation_chain = None
-        self.memory = ConversationBufferMemory(
-            memory_key="chat_history",
-            return_messages=True
-        )
+        self.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
-        # Try to load existing vector store
-        if os.path.exists(os.path.join(VECTOR_STORE_PATH, "index.faiss")):
-            try:
-                self.load_vector_store(VECTOR_STORE_PATH)
-                logging.info("Successfully loaded existing vector store")
-            except Exception as e:
-                logging.info("No existing vector store found")
-                self.vector_store = None
 
-    def save_vector_store(self, path: str):
-        """Save the vector store for future use"""
+    def _load_vector_store_from_supabase(self, chatbot_id: str):
+        """Load vector store from Supabase URLs"""
         # There are two files saved, index.faiss and index.pkl
         # index.faiss: contains the actual vector embeddings, stores the numerical vectors in FAISS's optimized format, used for similarity searching.
         # index.pkl: contains the metadata and mapping information, stores the original texts and their metadata, maps vectors back to their original content.
@@ -91,23 +72,71 @@ class RAGServiceImpl(RAGService):
 
         # Without .faiss, you can't perform similarity searches
         # Without .pkl, you can't retrieve the original content that matches the vectors
-        if self.vector_store:
-            self.vector_store.save_local(path)
-            logging.info(f"Vector store saved to {path}")
-        else:
+        try:
+            storage_faiss_path = f"chatbot_{chatbot_id}/index.faiss"
+            storage_pkl_path = f"chatbot_{chatbot_id}/index.pkl"
+
+            # Create a temporary directory
+            # FAISS needs actual files on disk because:
+            # 1. It memory-maps the index file (.faiss) for efficient similarity searches
+            # 2. It uses Python's pickle module to load the metadata (.pkl)
+            with tempfile.TemporaryDirectory() as temp_dir:
+                # Download files directly from Supabase bucket
+                faiss_data = self.supabase.storage.from_(BUCKET_NAME).download(storage_faiss_path)
+                pkl_data = self.supabase.storage.from_(BUCKET_NAME).download(storage_pkl_path)
+                
+                faiss_path = os.path.join(temp_dir, "index.faiss")
+                pkl_path = os.path.join(temp_dir, "index.pkl")
+                
+                # Save files temporarily
+                with open(faiss_path, 'wb') as f:
+                    f.write(faiss_data)
+                with open(pkl_path, 'wb') as f:
+                    f.write(pkl_data)
+                
+                # Load vector store from temporary files
+                self.vector_store = FAISS.load_local(temp_dir, self.embeddings)
+                self._initialize_conversation_chain()
+                
+        except Exception as e:
+            logging.error(f"Error loading vector store from Supabase: {str(e)}")
+            raise
+
+
+    def _save_vector_store(self, chatbot_id: str):
+        """Save vector store to Supabase storage"""
+        if not self.vector_store:
             logging.warning("No vector store to save")
+            return
+            
+        try:
+            # Create a temporary directory to save files
+            with tempfile.TemporaryDirectory() as temp_dir:
+                # Save vector store locally first
+                self.vector_store.save_local(temp_dir)
+                
+                # Upload both files to Supabase storage
+                faiss_path = os.path.join(temp_dir, "index.faiss")
+                pkl_path = os.path.join(temp_dir, "index.pkl")
+                
+                # Define storage paths
+                storage_faiss_path = f"chatbot_{chatbot_id}/index.faiss"
+                storage_pkl_path = f"chatbot_{chatbot_id}/index.pkl"
+                
+                # Upload files directly to bucket
+                with open(faiss_path, 'rb') as f:
+                    self.supabase.storage.from_(BUCKET_NAME).upload(storage_faiss_path, f)
+                with open(pkl_path, 'rb') as f:
+                    self.supabase.storage.from_(BUCKET_NAME).upload(storage_pkl_path, f)
+                
+                logging.info(f"Vector store saved to Supabase storage for chatbot {chatbot_id}")
+                
+        except Exception as e:
+            logging.error(f"Error saving vector store to Supabase: {str(e)}")
+            raise
 
-    def load_vector_store(self, path: str):
-        """Load a previously saved vector store"""
-        if os.path.exists(path):
-            self.vector_store = FAISS.load_local(path, self.embeddings)
-            logging.info(f"Vector store loaded from {path} directory")
-            self._initialize_chain()
-        else:
-            logging.error(f"Vector store path {path} does not exist")
 
-    def _initialize_chain(self):
-        """Initialize the conversation chain"""
+    def _initialize_conversation_chain(self):
         if self.vector_store:
             # Define your custom system template
             system_template = """You are a helpful AI assistant. Use the following pieces of context to answer the user's questions.
@@ -140,6 +169,7 @@ class RAGServiceImpl(RAGService):
             logging.info("Conversation chain initialization completed")
         else:
             logging.error("Cannot initialize chain without vector store")
+
 
     def process_url_document(self, url: str) -> List[Document]:
         """Process document from URL"""
@@ -235,13 +265,52 @@ class RAGServiceImpl(RAGService):
             logging.error(f"Error processing file from URL {url}: {str(e)}")
             return []
 
-    def process_documents_from_urls(self, data: ProcessDocumentsRequest) -> tuple[dict, int]:
-        """Process multiple documents from URLs"""
+
+    def process_documents_from_urls(self, data: ProcessDocumentsRequest, user_token: str) -> tuple[dict, int]:
+        """Process documents from URLs (from the documents table in Supabase)"""
+        if not self.supabase:
+            self.supabase = get_supabase_client(user_token)
+
+        # Check if vector store exists in Supabase
         try:
+            # Check 'chatbots' table first
+            result = self.supabase.table('chatbots') \
+                .select('vector_faiss_url') \
+                .eq('id', data.chatbot_id) \
+                .execute()
+            
+            # If no result or vector_faiss_url is None/empty, skip loading
+            if not result.data or not result.data[0].get('vector_faiss_url'):
+                logging.info("No existing vector store found for this chatbot")
+            else:
+                # If we have a vector store, try to load it
+                self._load_vector_store_from_supabase(data.chatbot_id)
+                logging.info("Successfully loaded existing vector store from Supabase")
+
+        except Exception as e:
+            logging.error(f"Failed to load vector store: {str(e)}")
+        
+        logging.info(f"chatbot_id: {data.chatbot_id}")
+
+        # Get document URLs from documents table for this chatbot 
+        try:
+            result = self.supabase.table('documents') \
+                .select('file_url') \
+                .eq('chatbot_id', data.chatbot_id) \
+                .execute()
+                
+            if not result.data:
+                return ErrorResponse(
+                    message="No documents found for this chatbot"
+                ).model_dump(), 404
+                
+            # Extract URLs from the result
+            urls = [doc['file_url'] for doc in result.data]
+            
             documents = []
             failed_urls = []
             
-            for url in data.urls:
+            for url in urls:  # Using URLs from Supabase instead of request
                 try:
                     docs = self.process_url_document(str(url))
                     if docs:
@@ -262,41 +331,19 @@ class RAGServiceImpl(RAGService):
             logging.info("Starting document splitting...")
             splits = self.text_splitter.split_documents(documents)
             logging.info(f"Document splitting completed, generated {len(splits)} segments")
-            
-            # Check if vector store exists and load it
-            if self.vector_store is None and os.path.exists(os.path.join(VECTOR_STORE_PATH, "index.faiss")):
-                self.load_vector_store(VECTOR_STORE_PATH)
-                logging.info("Loaded existing vector store for appending new documents")
 
             # Append new documents to the existing vector store
             if self.vector_store:
                 self.vector_store.add_documents(splits)
                 logging.info("Appended new documents to the existing vector store")
-                # 'add_documents' method: 
-                # 1: Convert New Documents to Vectors. 
-                # 2: Add to Existing Index: the new vectors are appended to the existing FAISS index, the metadata is added to the existing pickle file, nothing in the existing store is modified or recomputed.
-                # It preserves all existing vectors and mappings. Efficiently adds new vectors without reprocessing old ones. Updates both .faiss and .pkl files.
+            # if no vector store, create a new one
             else:
-                # Create a new vector store if none exists
-                logging.info("Creating vector store...")
-                self.vector_store = FAISS.from_documents(
-                    documents=splits,
-                    embedding=self.embeddings
-                )
+                self.vector_store = FAISS.from_documents(documents=splits, embedding=self.embeddings)
                 logging.info("Created a new vector store with the new documents")
-                # # 1. Vector Embedding (what OpenAIEmbeddings does)
-                # embedded_vectors = []
-                # for doc in splits:
-                #     vector = self.embeddings.embed_query(doc.page_content)
-                #     embedded_vectors.append(vector)
 
-                # # 2. Vector Storage (what FAISS does)
-                # vector_store = FAISS.create_index(embedded_vectors) # save the vector store to a file
-                # # LangChain conveniently combines these steps in the 'from_documents' method
-
-            self.save_vector_store(VECTOR_STORE_PATH)
-
-            self._initialize_chain()
+            # Save to Supabase
+            self._save_vector_store(data.chatbot_id)
+            self._initialize_conversation_chain()
             
             response = ProcessDocumentsResponse(
                 processed_count=len(documents),
@@ -313,6 +360,7 @@ class RAGServiceImpl(RAGService):
             return ErrorResponse(
                 message=str(e)
             ).model_dump(), 500
+
 
     def chat(self, data: ChatRequest) -> tuple[dict, int]:
         """Process user query and return response with source citations"""
