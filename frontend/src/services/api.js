@@ -2,11 +2,9 @@ import axios from "axios";
 
 // Create an Axios instance
 const api = axios.create({
-  baseURL: "https://api.example.com", // Replace with your API URL
-  timeout: 10000, // Set a timeout for requests
-  headers: {
-    "Content-Type": "application/json",
-  },
+  baseURL: process.env.REACT_APP_API_BASE_URL,
+  timeout: 10000,
+  headers: { "Content-Type": "application/json" },
 });
 
 // Add request interceptor to include authentication token

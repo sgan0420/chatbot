@@ -4,18 +4,20 @@ import { useNavigate } from "react-router-dom"; // Import navigation
 import "../styles/AuthPage.css";
 
 function LoginPage() {
-  const { isRegister, toggleRegister, login } = useAuth();
+  const { isRegister, toggleRegister, login, signup } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState(""); // Added fullName state for signup
   const navigate = useNavigate(); // Initialize navigation
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!isRegister) {
-      login(email, password); // Call login function from AuthContext
-      navigate("/dashboard"); // Redirect to dashboard after login
+      login(email, password);
+      navigate("/dashboard");
     } else {
-      alert("Register function not implemented yet.");
+      signup(email, password, fullName); // Call signup function instead of alert
+      navigate("/dashboard");
     }
   };
 
@@ -28,7 +30,15 @@ function LoginPage() {
 
         {/* Form */}
         <form className="auth-form" onSubmit={handleSubmit}>
-          {isRegister && <input type="text" placeholder="Full Name" required />}
+          {isRegister && (
+            <input
+              type="text"
+              placeholder="Full Name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+            />
+          )}
           <input
             type="email"
             placeholder="Email"
