@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 from pydantic import BaseModel
 
 
@@ -9,4 +9,3 @@ class ProcessDocumentsResponse(BaseModel):
 
 class ChatResponse(BaseModel):
     answer: str
-    sources: Optional[List[str]] = None 
