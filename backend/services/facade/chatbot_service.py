@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-
+from models.request.chatbot_request import UploadDocumentRequest
 
 class ChatbotService(ABC):
     # 1. Manage Chatbots
@@ -9,42 +9,23 @@ class ChatbotService(ABC):
 
     @abstractmethod
     def create_chatbot(self, user_id: str, data: dict) -> tuple:
-        data["user_id"] = user_id
-        response = self.supabase.from_("chatbots").select("*").eq("user_id", user_id).execute()
-        
-        if response.data:
-            return True
-        return False
+        pass
 
     @abstractmethod
     def get_chatbot_details(self, user_id: str, chatbot_id: str) -> tuple:
-        response = self.supabase.from_("chatbots").select("*").eq("user_id", user_id).eq("id", chatbot_id).execute()
-        
-        if response.data:
-            return True
-        return False
+        pass
 
     @abstractmethod
     def update_chatbot(self, user_id: str, chatbot_id: str, data: dict) -> tuple:
-        response = self.supabase.from_("chatbots").update(data).eq("user_id", user_id).eq("id", chatbot_id).execute()
-
-        if response.data:
-            return True
-        return False
+        pass
 
     @abstractmethod
     def delete_chatbot(self, user_id: str, chatbot_id: str) -> tuple:
-        response = self.supabase.from_("chatbots").update(data).eq("user_id", user_id).eq("id", chatbot_id).execute()
-        
-        if response.data:
-            return True
-        return False
+        pass
 
     # 2. Manage Documents
     @abstractmethod
-    def upload_document(
-        self, user_id: str, chatbot_id: str, document_data: dict
-    ) -> tuple:
+    def upload_document(self, data: UploadDocumentRequest):
         pass
 
     @abstractmethod
