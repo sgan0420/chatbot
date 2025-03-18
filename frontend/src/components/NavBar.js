@@ -87,7 +87,9 @@ function NavBar() {
             <a href="#">Contact</a>
             {user ? (
               <>
-                <span className="user-email">{user.email}</span>
+                <span className="user-email">
+                  {user.user_metadata?.display_name || user.email}
+                </span>
                 <button className="logout-button" onClick={logout}>
                   Logout
                 </button>
