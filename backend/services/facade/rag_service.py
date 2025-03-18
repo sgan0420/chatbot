@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
-from models.request.rag_request import ProcessDocumentsRequest, ChatRequest
-from models.response.rag_response import ProcessDocumentsResponse, ChatResponse
+from models.request.rag_request import ChatRequest
 
 
 class RAGService(ABC):
     @abstractmethod
-    def process_documents_from_urls(self, data: ProcessDocumentsRequest) -> tuple[dict, int]:
+    def process_documents_from_urls(self) -> tuple[dict, int]:
         """Process documents from URLs and create/update vector store"""
         pass
 

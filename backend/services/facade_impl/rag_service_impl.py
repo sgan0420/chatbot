@@ -23,7 +23,6 @@ from models.request.rag_request import ChatRequest, RAGServiceRequest
 from models.response.rag_response import ChatResponse, ProcessDocumentsResponse
 from models.response.response_wrapper import ErrorResponse, SuccessResponse
 from PyPDF2 import PdfReader
-from datetime import datetime, timezone
 from services.facade.rag_service import RAGService
 
 BUCKET_NAME = "DOCUMENTS"
@@ -57,13 +56,15 @@ class RAGServiceImpl(RAGService):
 
         # Check if vector store exists in Supabase
         try:
-            result = self.supabase.table('chatbots') \
-                .select('vector_faiss_url') \
-                .eq('id', self.chatbot_id) \
+            result = self.supabase.table('documents') \
+                .select('*') \
+                .eq('chatbot_id', self.chatbot_id) \
+                .eq('file_type', 'faiss') \
+                .single() \
                 .execute()
             
-            # If no result or vector_faiss_url is None/empty, skip loading
-            if not result.data or not result.data[0].get('vector_faiss_url'):
+            # If no result, skip loading
+            if not result.data:
                 logging.info("No existing vector store found for this chatbot")
             else:
                 # If we have a vector store, try to load it
@@ -95,8 +96,8 @@ class RAGServiceImpl(RAGService):
         # Without .faiss, you can't perform similarity searches
         # Without .pkl, you can't retrieve the original content that matches the vectors
         try:
-            storage_faiss_path = f"chatbot_{self.chatbot_id}/index.faiss"
-            storage_pkl_path = f"chatbot_{self.chatbot_id}/index.pkl"
+            storage_faiss_path = f"{self.user_id}/{self.chatbot_id}/rag-vector/index.faiss"
+            storage_pkl_path = f"{self.user_id}/{self.chatbot_id}/rag-vector/index.pkl"
 
             # Create a temporary directory
             # FAISS needs actual files on disk because:
@@ -164,19 +165,22 @@ class RAGServiceImpl(RAGService):
         """Load previous conversations into memory"""
         try:
             result = self.supabase.table('chats') \
-                .select('*') \
+                .select('conversation') \
                 .eq('id', self.chat_id) \
-                .order('created_at', desc=False) \
+                .single() \
                 .execute()
             
-            # Add messages to memory
-            for msg in result.data:
-                if msg['is_user']:
-                    self.memory.chat_memory.add_user_message(msg['message'])
-                else:
-                    self.memory.chat_memory.add_ai_message(msg['message'])
-                    
-            logging.info(f"Loaded {len(result.data)} messages into conversation memory")
+            if not result.data:
+                logging.info("No conversation history found for this chat")
+            else:
+                conversation = result.data['conversation']
+                # Add messages to memory
+                for msg in conversation:
+                    if msg['sender'] == 'user':
+                        self.memory.chat_memory.add_user_message(msg['message'])
+                    else:
+                        self.memory.chat_memory.add_ai_message(msg['message'])   
+                logging.info(f"Loaded {len(conversation)} messages into conversation memory")
         except Exception as e:
             logging.error(f"Error loading conversation memory: {str(e)}")
             # Fall back to empty memory
@@ -200,8 +204,8 @@ class RAGServiceImpl(RAGService):
                 pkl_path = os.path.join(temp_dir, "index.pkl")
                 
                 # Define storage paths
-                storage_faiss_path = f"chatbot_{self.chatbot_id}/index.faiss"
-                storage_pkl_path = f"chatbot_{self.chatbot_id}/index.pkl"
+                storage_faiss_path = f"{self.user_id}/{self.chatbot_id}/rag-vector/index.faiss"
+                storage_pkl_path = f"{self.user_id}/{self.chatbot_id}/rag-vector/index.pkl"
                 
                 # Upload files directly to bucket
                 with open(faiss_path, 'rb') as f:
@@ -216,17 +220,38 @@ class RAGServiceImpl(RAGService):
             raise
 
 
-    def _save_message(self, message: str, is_user: bool, created_at: str):
-        """Save a message to the chats table"""
+    def _save_message(self, message: str, is_user: bool):
+        """Save a message to the chats table with the new conversation format"""
         try:
-            self.supabase.table('chats').insert({
-                "id": self.chat_id,
-                "chatbot_id": self.chatbot_id,
-                "is_user": is_user,
-                "message": message,
-                "created_at": created_at
-            }).execute()
-            logging.info(f"Saved {'user' if is_user else 'AI'} message to database")
+            # Get existing conversation or create new one
+            result = self.supabase.table('chats') \
+                .select('conversation') \
+                .eq('id', self.chat_id) \
+                .single() \
+                .execute()
+            conversation = result.data.get('conversation', [])
+
+            # Add new message to conversation
+            conversation.append({
+                "sender": "user" if is_user else "bot",
+                "message": message
+            })
+
+            # If this is a new chat session
+            if not result.data:
+                self.supabase.table('chats').insert({
+                    "id": self.chat_id,
+                    "chatbot_id": self.chatbot_id,
+                    "conversation": conversation
+                }).execute()
+            else:
+                # Update existing chat session
+                self.supabase.table('chats') \
+                    .update({"conversation": conversation}) \
+                    .eq('id', self.chat_id) \
+                    .execute()
+
+            logging.info(f"Saved {'user' if is_user else 'AI'} message to chat session {self.chat_id}")
         except Exception as e:
             logging.error(f"Error saving message to database: {str(e)}")
 
@@ -328,35 +353,32 @@ class RAGServiceImpl(RAGService):
 
     def process_documents_from_urls(self) -> tuple[dict, int]:
         """Process documents from URLs (from the documents table in Supabase)"""
-        # Get document URLs from documents table for this chatbot 
+        # Get document URLs from documents table for newly uploaded documents (is_processed = False)
         try:
             result = self.supabase.table('documents') \
-                .select('file_url') \
+                .select('bucket_path') \
                 .eq('chatbot_id', self.chatbot_id) \
+                .eq('is_processed', False) \
                 .execute()
                 
             if not result.data:
                 return ErrorResponse(
                     message="No documents found for this chatbot"
                 ).model_dump(), 404
-                
-            # Extract URLs from the result
-            urls = [doc['file_url'] for doc in result.data]
             
             documents = []
             failed_urls = []
-            
-            for url in urls:  # Using URLs from Supabase instead of request
-                try:
-                    docs = self._process_url_document(str(url))
-                    if docs:
-                        documents.extend(docs)
-                    else:
-                        failed_urls.append(str(url))
-                except Exception as e:
-                    logging.error(f"Error processing URL {url}: {str(e)}")
+
+            for doc in result.data:
+                bucket_path = doc['bucket_path']
+                # Get url from bucket_path
+                url = self.supabase.storage.from_(BUCKET_NAME).create_signed_url(bucket_path, 3600)['signedURL']
+                # Process the file url
+                docs = self._process_url_document(url)
+                if docs:
+                    documents.extend(docs)
+                else:
                     failed_urls.append(str(url))
-                    continue
 
             if not documents:
                 return ErrorResponse(
@@ -376,6 +398,12 @@ class RAGServiceImpl(RAGService):
             else:
                 self.vector_store = FAISS.from_documents(documents=splits, embedding=self.embeddings)
                 logging.info("Created a new vector store with the new documents")
+            
+            # Update is_processed to True for the newly processed documents
+            self.supabase.table('documents') \
+                .update({'is_processed': True}) \
+                .eq('chatbot_id', self.chatbot_id) \
+                .execute()
             
             self._initialize_conversation_chain()
             self._save_vector_store()
@@ -410,13 +438,11 @@ class RAGServiceImpl(RAGService):
             # Get AI response
             result = self.conversation_chain({"question": data.query})
             answer = result.get("answer", "Sorry, I couldn't find relevant information.")
-            timestamp = datetime.now(timezone.utc).isoformat()
             
-            self._save_message(answer, False, timestamp)            
-            response = ChatResponse(answer)
+            self._save_message(answer, is_user=False)
 
             return SuccessResponse(
-                data=response.model_dump(),
+                data=ChatResponse(answer).model_dump(),
                 message="Chat response generated successfully"
             ).model_dump(), 200
             
@@ -428,15 +454,22 @@ class RAGServiceImpl(RAGService):
 
 
     def get_chat_history(self) -> tuple[dict, int]:
-        """Get chat history for a specific chatbot"""
+        """Get chat history for a specific chat session"""
         try:
             result = self.supabase.table('chats') \
-                .select('*') \
+                .select('conversation') \
                 .eq('id', self.chat_id) \
-                .order('created_at', desc=False) \
+                .single() \
                 .execute()
+
+            if not result.data:
+                return SuccessResponse(
+                    data={"messages": []},
+                    message="No chat history found"
+                ).model_dump(), 200
+
             return SuccessResponse(
-                data={"messages": result.data},
+                data={"messages": result.data.get('conversation', [])},
                 message="Chat history retrieved successfully"
             ).model_dump(), 200
         except Exception as e:
