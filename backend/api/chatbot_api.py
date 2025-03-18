@@ -1,7 +1,7 @@
 from flask import Blueprint, g, jsonify, request
 from services.facade_impl.chatbot_service_impl import ChatbotServiceImpl
 from utils.auth import require_auth
-from models.request.chatbot_request import UploadDocumentRequest
+from models.request.chatbot_request import UploadDocumentRequest, DeleteDocumentRequest
 from models.response.response_wrapper import ErrorResponse
 
 chatbot_api = Blueprint("chatbot_api", __name__)
@@ -32,3 +32,29 @@ def upload_document(chatbot_id: str):
         return jsonify(ErrorResponse(
             message=str(e)
         ).model_dump()), 500
+    
+@chatbot_api.route("/list/<chatbot_id>", methods=["GET"])
+@require_auth
+def list_documents(chatbot_id: str):
+    try:
+        chatbot_service = ChatbotServiceImpl(g.user_id, g.user_token)
+        response, status_code = chatbot_service.list_documents(chatbot_id)
+        return jsonify(response), status_code
+    except Exception as e:
+        return jsonify(ErrorResponse(
+            message=str(e)
+        ).model_dump()), 500
+
+@chatbot_api.route("/delete", methods=["DELETE"])
+@require_auth
+def delete_document():
+    try:
+        validated_data = DeleteDocumentRequest(**request.json)
+        chatbot_service = ChatbotServiceImpl(g.user_id, g.user_token)
+        response, status_code = chatbot_service.delete_document(validated_data)
+        return jsonify(response), status_code
+    except Exception as e:
+        return jsonify(ErrorResponse(
+            message=str(e)
+        ).model_dump()), 500
+
