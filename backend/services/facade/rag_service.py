@@ -9,6 +9,6 @@ class RAGService(ABC):
         pass
 
     @abstractmethod
-    def chat(self, data: ChatRequest) -> tuple[dict, int]:
+    def chat(self, user_id: str, user_token: str, data: ChatRequest) -> tuple[dict, int]:
         """Process a chat query and return response"""
         pass 

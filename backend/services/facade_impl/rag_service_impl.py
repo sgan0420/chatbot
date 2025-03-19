@@ -1,6 +1,7 @@
 import logging
 import os
 import tempfile
+import uuid
 from io import BytesIO
 from typing import List
 
@@ -8,22 +9,25 @@ import docx
 import pandas as pd
 import requests
 from config import get_supabase_client
-
 from dotenv import load_dotenv
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.memory import ConversationBufferMemory
-from langchain.prompts.chat import (ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate,
+from langchain.prompts.chat import (
+    ChatPromptTemplate,
+    HumanMessagePromptTemplate,
+    SystemMessagePromptTemplate,
 )
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
-from models.request.rag_request import ChatRequest, RAGServiceRequest
+from models.request.rag_request import ChatRequest, ProcessDocumentsRequest
 from models.response.rag_response import ChatResponse, ProcessDocumentsResponse
 from models.response.response_wrapper import ErrorResponse, SuccessResponse
 from PyPDF2 import PdfReader
 from services.facade.rag_service import RAGService
+from supabase import Client
 
 BUCKET_NAME = "DOCUMENTS"
 
@@ -34,16 +38,11 @@ logging.basicConfig(
 )
 
 class RAGServiceImpl(RAGService):
-    def __init__(self, user_id: str, user_token: str, data: RAGServiceRequest):
+    def __init__(self):
         load_dotenv()
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("Please set OPENAI_API_KEY in the .env file")
-        
-        self.user_id = user_id
-        self.supabase = get_supabase_client(user_token)
-        self.chatbot_id = data.chatbot_id
-        self.chat_id = data.chat_id
         self.embeddings = OpenAIEmbeddings()
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
@@ -54,31 +53,8 @@ class RAGServiceImpl(RAGService):
         self.conversation_chain = None
         self.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
-        # Check if vector store exists in Supabase
-        try:
-            result = self.supabase.table('documents') \
-                .select('*') \
-                .eq('chatbot_id', self.chatbot_id) \
-                .eq('file_type', 'faiss') \
-                .single() \
-                .execute()
-            
-            # If no result, skip loading
-            if not result.data:
-                logging.info("No existing vector store found for this chatbot")
-            else:
-                # If we have a vector store, try to load it
-                self._load_vector_store_from_supabase()
-                logging.info("Successfully loaded existing vector store from Supabase")
-                # If vector store loaded successfully, also load conversation history
-                self._load_conversation_memory()
-                logging.info("Successfully loaded existing conversation history from Supabase")
 
-        except Exception as e:
-            logging.error(f"Failed to load existing vector store or conversation history: {str(e)}")
-
-
-    def _load_vector_store_from_supabase(self):
+    def _load_vector_store_from_supabase(self, user_id: str, chatbot_id: str, supabase: Client):
         """Load vector store from Supabase URLs"""
         # There are two files saved, index.faiss and index.pkl
         # index.faiss: contains the actual vector embeddings, stores the numerical vectors in FAISS's optimized format, used for similarity searching.
@@ -96,8 +72,8 @@ class RAGServiceImpl(RAGService):
         # Without .faiss, you can't perform similarity searches
         # Without .pkl, you can't retrieve the original content that matches the vectors
         try:
-            storage_faiss_path = f"{self.user_id}/{self.chatbot_id}/rag-vector/index.faiss"
-            storage_pkl_path = f"{self.user_id}/{self.chatbot_id}/rag-vector/index.pkl"
+            storage_faiss_path = f"{user_id}/{chatbot_id}/rag-vector/index.faiss"
+            storage_pkl_path = f"{user_id}/{chatbot_id}/rag-vector/index.pkl"
 
             # Create a temporary directory
             # FAISS needs actual files on disk because:
@@ -105,8 +81,8 @@ class RAGServiceImpl(RAGService):
             # 2. It uses Python's pickle module to load the metadata (.pkl)
             with tempfile.TemporaryDirectory() as temp_dir:
                 # Download files directly from Supabase bucket
-                faiss_data = self.supabase.storage.from_(BUCKET_NAME).download(storage_faiss_path)
-                pkl_data = self.supabase.storage.from_(BUCKET_NAME).download(storage_pkl_path)
+                faiss_data = supabase.storage.from_(BUCKET_NAME).download(storage_faiss_path)
+                pkl_data = supabase.storage.from_(BUCKET_NAME).download(storage_pkl_path)
                 
                 faiss_path = os.path.join(temp_dir, "index.faiss")
                 pkl_path = os.path.join(temp_dir, "index.pkl")
@@ -161,26 +137,39 @@ class RAGServiceImpl(RAGService):
             logging.error("Cannot initialize chain without vector store")
 
 
-    def _load_conversation_memory(self):
+    def _load_conversation_memory(self, chatbot_id: str, session_id: str, supabase: Client):
         """Load previous conversations into memory"""
         try:
-            result = self.supabase.table('chats') \
-                .select('conversation') \
-                .eq('id', self.chat_id) \
-                .single() \
+            # Get user messages
+            user_result = supabase.table('chats') \
+                .select('message') \
+                .eq('chatbot_id', chatbot_id) \
+                .eq('session_id', session_id) \
+                .eq('user_type', 'user') \
+                .order('created_at') \
+                .execute()
+
+            # Get AI messages
+            ai_result = supabase.table('chats') \
+                .select('message') \
+                .eq('chatbot_id', chatbot_id) \
+                .eq('session_id', session_id) \
+                .eq('user_type', 'bot') \
+                .order('created_at') \
                 .execute()
             
-            if not result.data:
+            if not (user_result.data or ai_result.data):
                 logging.info("No conversation history found for this chat")
             else:
-                conversation = result.data['conversation']
                 # Add messages to memory
-                for msg in conversation:
-                    if msg['sender'] == 'user':
-                        self.memory.chat_memory.add_user_message(msg['message'])
-                    else:
-                        self.memory.chat_memory.add_ai_message(msg['message'])   
-                logging.info(f"Loaded {len(conversation)} messages into conversation memory")
+                # LangChain API's add_user_message and add_ai_message methods only accept one message at a time. 
+                for msg in user_result.data:
+                    self.memory.chat_memory.add_user_message(msg['message'])
+                for msg in ai_result.data:
+                    self.memory.chat_memory.add_ai_message(msg['message'])
+                    
+                total_messages = len(user_result.data) + len(ai_result.data)
+                logging.info(f"Loaded {total_messages} messages into conversation memory")
         except Exception as e:
             logging.error(f"Error loading conversation memory: {str(e)}")
             # Fall back to empty memory
@@ -220,40 +209,21 @@ class RAGServiceImpl(RAGService):
             raise
 
 
-    def _save_message(self, message: str, is_user: bool):
-        """Save a message to the chats table with the new conversation format"""
+    def _save_message(self, chatbot_id: str, session_id: str, is_user: bool, message: str, supabase: Client):
+        """Save a message to the chats table """
         try:
-            # Get existing conversation or create new one
-            result = self.supabase.table('chats') \
-                .select('conversation') \
-                .eq('id', self.chat_id) \
-                .single() \
-                .execute()
-            conversation = result.data.get('conversation', [])
-
-            # Add new message to conversation
-            conversation.append({
-                "sender": "user" if is_user else "bot",
-                "message": message
-            })
-
-            # If this is a new chat session
-            if not result.data:
-                self.supabase.table('chats').insert({
-                    "id": self.chat_id,
-                    "chatbot_id": self.chatbot_id,
-                    "conversation": conversation
-                }).execute()
-            else:
-                # Update existing chat session
-                self.supabase.table('chats') \
-                    .update({"conversation": conversation}) \
-                    .eq('id', self.chat_id) \
-                    .execute()
-
-            logging.info(f"Saved {'user' if is_user else 'AI'} message to chat session {self.chat_id}")
+            # add a new row to the chats table
+            supabase.table('chats').insert({
+                'id': str(uuid.uuid4()),
+                'chatbot_id': chatbot_id,
+                'session_id': session_id,
+                'user_type': 'user' if is_user else 'bot',
+                'message': message,
+            }).execute()
+            logging.info(f"Saved {'user' if is_user else 'AI'} message to chat session {session_id}")
         except Exception as e:
-            logging.error(f"Error saving message to database: {str(e)}")
+            logging.error(f"Error saving message to chat session {session_id}: {str(e)}")
+            raise  # Re-raise to handle in the calling function
 
 
     def _process_url_document(self, url: str) -> List[Document]:
@@ -424,22 +394,43 @@ class RAGServiceImpl(RAGService):
             ).model_dump(), 500
 
 
-    def chat(self, data: ChatRequest) -> tuple[dict, int]:
+    def chat(self, user_id: str, user_token: str, data: ChatRequest) -> tuple[dict, int]:
         """Process user query and return response"""
-        if not self.vector_store or not self.conversation_chain:
-            return ErrorResponse(
-                message="No vector store or conversation chain found"
-            ).model_dump(), 400
+        supabase = get_supabase_client(user_token)
+        chatbot_id = data.chatbot_id
+        session_id = data.session_id
+        query = data.query
+        # Check if vector store exists in Supabase
+        try:
+            result = supabase.table('documents') \
+                .select('*') \
+                .eq('chatbot_id', chatbot_id) \
+                .eq('file_type', 'faiss') \
+                .single() \
+                .execute()
+            # If no result, skip loading
+            if not result.data:
+                logging.info("No existing vector store found for this chatbot")
+                return ErrorResponse(
+                    message="No vector store found for this chatbot"
+                ).model_dump(), 400
+            else:
+                self._load_vector_store_from_supabase(user_id, chatbot_id, supabase)
+                logging.info("Successfully loaded existing vector store from Supabase")
+                self._load_conversation_memory(chatbot_id, session_id, supabase)
+                logging.info("Successfully loaded existing conversation history from Supabase")
+        except Exception as e:
+            logging.error(f"Failed to load existing vector store or conversation history: {str(e)}")
 
         try:
             # Save user message first
-            self._save_message(data.query, is_user=True)
+            self._save_message(chatbot_id, session_id, True, query, supabase)
             
             # Get AI response
-            result = self.conversation_chain({"question": data.query})
+            result = self.conversation_chain({"question": query})
             answer = result.get("answer", "Sorry, I couldn't find relevant information.")
             
-            self._save_message(answer, is_user=False)
+            self._save_message(chatbot_id, session_id, False, answer, supabase)
 
             return SuccessResponse(
                 data=ChatResponse(answer).model_dump(),
