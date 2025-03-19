@@ -19,13 +19,12 @@ rag_service = RAGServiceImpl()
 @require_auth
 def process_documents():
     try:
-        # Validate the request data
-        data = ProcessDocumentsRequest(**request.json)
         user_id = g.user_id
         user_token = g.user_token
+        data = ProcessDocumentsRequest(**request.json)
         response, status_code = rag_service.process_documents_from_urls(user_id, user_token, data)
         return jsonify(response), status_code
-    except ValidationError as e:
+    except ValidationError as e: # this is for the request body validation
         error_response = ErrorResponse(
             success=False,
             message="Validation failed",

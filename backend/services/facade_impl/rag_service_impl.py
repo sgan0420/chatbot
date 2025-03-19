@@ -176,12 +176,11 @@ class RAGServiceImpl(RAGService):
             self.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
 
-    def _save_vector_store(self):
+    def _save_vector_store(self, user_id: str, chatbot_id: str, supabase: Client):
         """Save vector store to Supabase storage"""
         if not self.vector_store:
             logging.warning("No vector store to save")
             return
-            
         try:
             # Create a temporary directory to save files
             with tempfile.TemporaryDirectory() as temp_dir:
@@ -193,16 +192,16 @@ class RAGServiceImpl(RAGService):
                 pkl_path = os.path.join(temp_dir, "index.pkl")
                 
                 # Define storage paths
-                storage_faiss_path = f"{self.user_id}/{self.chatbot_id}/rag-vector/index.faiss"
-                storage_pkl_path = f"{self.user_id}/{self.chatbot_id}/rag-vector/index.pkl"
+                storage_faiss_path = f"{user_id}/{chatbot_id}/rag-vector/index.faiss"
+                storage_pkl_path = f"{user_id}/{chatbot_id}/rag-vector/index.pkl"
                 
                 # Upload files directly to bucket
                 with open(faiss_path, 'rb') as f:
-                    self.supabase.storage.from_(BUCKET_NAME).upload(storage_faiss_path, f)
+                    supabase.storage.from_(BUCKET_NAME).upload(storage_faiss_path, f)
                 with open(pkl_path, 'rb') as f:
-                    self.supabase.storage.from_(BUCKET_NAME).upload(storage_pkl_path, f)
+                    supabase.storage.from_(BUCKET_NAME).upload(storage_pkl_path, f)
                 
-                logging.info(f"Vector store saved to Supabase storage for chatbot {self.chatbot_id}")
+                logging.info(f"Vector store saved to Supabase storage for chatbot {chatbot_id}")
                 
         except Exception as e:
             logging.error(f"Error saving vector store to Supabase: {str(e)}")
@@ -321,13 +320,15 @@ class RAGServiceImpl(RAGService):
             return []
 
 
-    def process_documents_from_urls(self) -> tuple[dict, int]:
+    def process_documents_from_urls(self, user_id: str, user_token: str, data: ProcessDocumentsRequest) -> tuple[dict, int]:
         """Process documents from URLs (from the documents table in Supabase)"""
+        supabase = get_supabase_client(user_token)
+        chatbot_id = data.chatbot_id
         # Get document URLs from documents table for newly uploaded documents (is_processed = False)
         try:
-            result = self.supabase.table('documents') \
+            result = supabase.table('documents') \
                 .select('bucket_path') \
-                .eq('chatbot_id', self.chatbot_id) \
+                .eq('chatbot_id', chatbot_id) \
                 .eq('is_processed', False) \
                 .execute()
                 
@@ -342,7 +343,7 @@ class RAGServiceImpl(RAGService):
             for doc in result.data:
                 bucket_path = doc['bucket_path']
                 # Get url from bucket_path
-                url = self.supabase.storage.from_(BUCKET_NAME).create_signed_url(bucket_path, 3600)['signedURL']
+                url = supabase.storage.from_(BUCKET_NAME).create_signed_url(bucket_path, 3600)['signedURL']
                 # Process the file url
                 docs = self._process_url_document(url)
                 if docs:
@@ -370,20 +371,16 @@ class RAGServiceImpl(RAGService):
                 logging.info("Created a new vector store with the new documents")
             
             # Update is_processed to True for the newly processed documents
-            self.supabase.table('documents') \
+            supabase.table('documents') \
                 .update({'is_processed': True}) \
-                .eq('chatbot_id', self.chatbot_id) \
+                .eq('chatbot_id', chatbot_id) \
                 .execute()
             
             self._initialize_conversation_chain()
-            self._save_vector_store()
-            response = ProcessDocumentsResponse(
-                processed_count=len(documents),
-                failed_urls=failed_urls
-            )
+            self._save_vector_store(user_id, chatbot_id, supabase)
             
             return SuccessResponse(
-                data=response.model_dump(),
+                data=ProcessDocumentsResponse(len(documents), failed_urls).model_dump(),
                 message="Documents processed successfully"
             ).model_dump(), 200
             

@@ -6,6 +6,5 @@ class ProcessDocumentsResponse(BaseModel):
     processed_count: int
     failed_urls: List[str]
 
-
 class ChatResponse(BaseModel):
     answer: str
