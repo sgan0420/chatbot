@@ -1,5 +1,5 @@
 import uuid
-from chatbot.backend.models.request.chatbot_request import UploadDocumentRequest, DeleteDocumentRequest
+from backend.models.request.chatbot_request import UploadDocumentRequest, DeleteDocumentRequest
 from config import get_supabase_client
 from exceptions.database_exception import DatabaseException
 from models.response.chatbot_response import ChatbotListResponse, DocumentListResponse
