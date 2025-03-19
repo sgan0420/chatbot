@@ -201,7 +201,28 @@ class RAGServiceImpl(RAGService):
                 with open(pkl_path, 'rb') as f:
                     supabase.storage.from_(BUCKET_NAME).upload(storage_pkl_path, f)
                 
-                logging.info(f"Vector store saved to Supabase storage for chatbot {chatbot_id}")
+                logging.info(f"Vector store saved to Supabase bucket for chatbot {chatbot_id}")
+
+                # add two rows to the documents table
+                supabase.table('documents').insert({
+                    'id': str(uuid.uuid4()),
+                    'chatbot_id': chatbot_id,
+                    'file_name': 'index.faiss',
+                    'file_type': 'faiss',
+                    'is_processed': True,
+                    'bucket_path': storage_faiss_path
+                }).execute()
+
+                supabase.table('documents').insert({
+                    'id': str(uuid.uuid4()),
+                    'chatbot_id': chatbot_id,
+                    'file_name': 'index.pkl',
+                    'file_type': 'pkl',
+                    'is_processed': True,
+                    'bucket_path': storage_pkl_path
+                }).execute()
+                
+                logging.info(f"Added two rows to the documents table for chatbot {chatbot_id}")
                 
         except Exception as e:
             logging.error(f"Error saving vector store to Supabase: {str(e)}")
@@ -380,7 +401,10 @@ class RAGServiceImpl(RAGService):
             self._save_vector_store(user_id, chatbot_id, supabase)
             
             return SuccessResponse(
-                data=ProcessDocumentsResponse(len(documents), failed_urls).model_dump(),
+                data=ProcessDocumentsResponse(
+                    processed_count=len(documents),
+                    failed_urls=failed_urls
+                ).model_dump(),
                 message="Documents processed successfully"
             ).model_dump(), 200
             
@@ -430,7 +454,9 @@ class RAGServiceImpl(RAGService):
             self._save_message(chatbot_id, session_id, False, answer, supabase)
 
             return SuccessResponse(
-                data=ChatResponse(answer).model_dump(),
+                data=ChatResponse(
+                    answer=answer
+                ).model_dump(),
                 message="Chat response generated successfully"
             ).model_dump(), 200
             
