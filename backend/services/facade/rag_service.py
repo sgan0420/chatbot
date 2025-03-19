@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from models.request.rag_request import ChatRequest, ProcessDocumentsRequest
+from models.request.rag_request import ChatRequest, ProcessDocumentsRequest, GetChatHistoryRequest
 
 
 class RAGService(ABC):
@@ -12,3 +12,8 @@ class RAGService(ABC):
     def chat(self, user_id: str, user_token: str, data: ChatRequest) -> tuple[dict, int]:
         """Process a chat query and return response"""
         pass 
+
+    @abstractmethod
+    def get_chat_history(self, user_id: str, user_token: str, data: GetChatHistoryRequest) -> tuple[dict, int]:
+        """Get chat history for a specific chat session"""
+        pass

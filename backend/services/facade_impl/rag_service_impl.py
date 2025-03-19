@@ -22,7 +22,7 @@ from langchain.prompts.chat import (
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
-from models.request.rag_request import ChatRequest, ProcessDocumentsRequest
+from models.request.rag_request import ChatRequest, ProcessDocumentsRequest, GetChatHistoryRequest
 from models.response.rag_response import ChatResponse, ProcessDocumentsResponse
 from models.response.response_wrapper import ErrorResponse, SuccessResponse
 from PyPDF2 import PdfReader
@@ -441,13 +441,16 @@ class RAGServiceImpl(RAGService):
             ).model_dump(), 500
 
 
-    def get_chat_history(self) -> tuple[dict, int]:
+    def get_chat_history(self, user_id: str, user_token: str, data: GetChatHistoryRequest) -> tuple[dict, int]:
         """Get chat history for a specific chat session"""
+        supabase = get_supabase_client(user_token)
+        chatbot_id = data.chatbot_id
+        session_id = data.session_id
         try:
-            result = self.supabase.table('chats') \
-                .select('conversation') \
-                .eq('id', self.chat_id) \
-                .single() \
+            result = supabase.table('chats') \
+                .select('message') \
+                .eq('chatbot_id', chatbot_id) \
+                .eq('session_id', session_id) \
                 .execute()
 
             if not result.data:
@@ -457,7 +460,7 @@ class RAGServiceImpl(RAGService):
                 ).model_dump(), 200
 
             return SuccessResponse(
-                data={"messages": result.data.get('conversation', [])},
+                data={"messages": result.data},
                 message="Chat history retrieved successfully"
             ).model_dump(), 200
         except Exception as e:
