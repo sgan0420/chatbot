@@ -63,7 +63,7 @@ def chat():
         return jsonify(error_response.model_dump()), 500
 
 
-@rag_api.route("/get-history/", methods=["GET"])
+@rag_api.route("/get-history", methods=["GET"])
 @require_auth
 def get_chat_history():
     try:

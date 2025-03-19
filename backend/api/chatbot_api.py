@@ -23,7 +23,7 @@ def upload_document():
         user_id = g.user_id
         user_token = g.user_token
         data = UploadDocumentRequest(
-            chatbot_id=request.json["chatbot_id"],
+            chatbot_id=request.form["chatbot_id"],
             file=request.files['file']
         )
         chatbot_service = ChatbotServiceImpl(user_token)

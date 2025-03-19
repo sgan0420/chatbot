@@ -1,5 +1,5 @@
 import uuid
-from backend.models.request.chatbot_request import UploadDocumentRequest, DeleteDocumentRequest
+from models.request.chatbot_request import UploadDocumentRequest, DeleteDocumentRequest
 from config import get_supabase_client
 from exceptions.database_exception import DatabaseException
 from models.response.chatbot_response import ChatbotListResponse, DocumentListResponse
@@ -36,9 +36,14 @@ class ChatbotServiceImpl(ChatbotService):
             file_name = file.filename
             file_type = file_name.split(".")[-1]            
             bucket_path = f"{user_id}/{chatbot_id}/document/{file_name}"
+
+            file_content = file.read()
             
             # Upload the file to storage bucket
-            self.supabase.storage.from_(BUCKET_NAME).upload(bucket_path, file)
+            self.supabase.storage.from_(BUCKET_NAME).upload(bucket_path, file_content)
+
+            file.seek(0) # Reset file pointer for potential future use
+
             # Save document metadata to database
             document_data = {
                 "id": document_id,
