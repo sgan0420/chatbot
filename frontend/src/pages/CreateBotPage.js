@@ -4,6 +4,7 @@ import BotSettingsForm from "../components/BotSettingForm";
 import UploadCard from "../components/UploadCard";
 import {
   createChatbot,
+  updateChatbot,
   uploadDocument,
   getChatbot,
 } from "../services/apiService";
@@ -58,13 +59,14 @@ function CreateBotPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Fetch bot details if in edit mode (your existing code)
+  // Fetch bot details if in edit mode
   useEffect(() => {
     if (isEditMode && botId) {
       const fetchBot = async () => {
         try {
-          const bot = await getChatbot(botId); // Await the API call
+          const bot = await getChatbot(botId);
           setBotData({
+            id: bot.id, // include id so that later we know it's an update
             name: bot.name,
             description: bot.description,
           });
@@ -86,7 +88,7 @@ function CreateBotPage() {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Submit handler - creates bot and uploads files
+  // Submit handler - creates or updates bot and uploads files
   const handleSubmit = async () => {
     if (!botData.name) {
       alert("Bot name is required!");
@@ -97,35 +99,36 @@ function CreateBotPage() {
     setUploadProgress(0);
 
     try {
-      // Step 1: Create or update the bot
       let newBotId;
 
-      if (isEditMode) {
-        // Update existing bot (replace with your API call)
+      if (isEditMode && botId) {
+        // Update existing bot
         console.log("Updating bot:", botData);
-        newBotId = botId; // Use existing bot ID
+        const response = await updateChatbot(botId, botData);
+        console.log("Bot updated:", response);
+        newBotId = botId;
       } else {
         // Create new bot
         const response = await createChatbot(botData);
         console.log("Bot created:", response);
         newBotId = response.id; // Get the new bot ID
+        // Optionally update botData state with new id:
+        setBotData((prev) => ({ ...prev, id: response.id }));
       }
 
-      // Step 2: Upload all selected files
+      // Upload all selected files if any
       if (selectedFiles.length > 0 && newBotId) {
         const totalFiles = selectedFiles.length;
-
         for (let i = 0; i < totalFiles; i++) {
           const { file, fileType } = selectedFiles[i];
-
           const formData = new FormData();
           formData.append("file", file);
           formData.append("filetype", fileType);
           formData.append("filename", file.name);
 
+          // Pass newBotId and formData to the uploadDocument API call
           await uploadDocument(newBotId, formData);
-
-          // Update progress
+          // Update progress after each file is uploaded:
           setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
         }
       }
@@ -135,8 +138,7 @@ function CreateBotPage() {
           ? "Bot updated and files uploaded successfully!"
           : "Bot created and files uploaded successfully!",
       );
-
-      navigate("/bots"); // Redirect to bots page
+      navigate("/bots"); // Redirect to bots list
     } catch (error) {
       console.error("Error:", error);
       alert(`Error: ${error.message || "Something went wrong"}`);
@@ -155,7 +157,6 @@ function CreateBotPage() {
       {/* Upload Section */}
       <div className="upload-data-form">
         <h2 className="text-xl font-semibold mb-4">Upload Your Data</h2>
-
         {/* Basic Upload Options */}
         <h3 className="text-lg font-medium mt-8 mb-6">Basic</h3>
         <div className="upload-grid">
@@ -168,7 +169,6 @@ function CreateBotPage() {
             />
           ))}
         </div>
-
         {/* Advanced Upload Options */}
         <h3 className="text-lg font-medium mt-8 mb-6">Advanced</h3>
         <div className="upload-grid">
