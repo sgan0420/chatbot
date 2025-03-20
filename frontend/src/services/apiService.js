@@ -49,7 +49,16 @@ export const logout = () => {
 export const getUserChatbots = async () => {
   try {
     const response = await api.get("/chatbot");
-    return response.data;
+    return response.data.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getChatbot = async (id) => {
+  try {
+    const response = await api.get(`/chatbot/${id}`);
+    return response.data.data;
   } catch (error) {
     throw error;
   }
