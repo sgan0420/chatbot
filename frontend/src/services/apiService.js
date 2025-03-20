@@ -46,51 +46,51 @@ export const logout = () => {
 // ========== CHATBOT API CALLS ==========
 
 // Fetch all chatbots
-export const getChatbots = async () => {
+export const getUserChatbots = async () => {
   try {
-    const response = await api.get("/chatbots");
+    const response = await api.get("/chatbot");
     return response.data;
   } catch (error) {
     throw error;
   }
 };
 
-// Fetch a single chatbot by ID
-export const getChatbotById = async (id) => {
+// TODO: implement getChatbotDetail function
+export const getChatbotDetail = async (id) => {};
+
+// TODO: implement createChatbot function
+export const createChatbot = async (botData) => {};
+
+// ========== DOCUMENT API CALLS ==========
+
+// Upload a document for a chatbot
+export const uploadDocument = async (chatbotId, formData) => {
   try {
-    const response = await api.get(`/chatbots/${id}`);
+    const response = await api.post(`/chatbot/upload/${chatbotId}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return response.data;
   } catch (error) {
     throw error;
   }
 };
 
-// Function to create a new chatbot
-export const createChatbot = async (botData) => {
+// List documents for a chatbot
+export const listDocuments = async (chatbotId) => {
   try {
-    const response = await api.post("/chatbots", botData);
+    const response = await api.get(`/chatbot/list/${chatbotId}`);
     return response.data;
   } catch (error) {
-    console.error(
-      "Error creating chatbot:",
-      error.response?.data || error.message,
-    );
     throw error;
   }
 };
 
-// Delete a chatbot
-export const deleteChatbot = async (id) => {
+// Delete a document
+export const deleteDocument = async (payload) => {
   try {
-    await api.delete(`/chatbots/${id}`);
+    const response = await api.delete(`/chatbot/delete`, { data: payload });
+    return response.data;
   } catch (error) {
     throw error;
   }
-};
-
-// Upload a file
-export const uploadFile = async (formData) => {
-  return await api.post("/upload", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
 };
