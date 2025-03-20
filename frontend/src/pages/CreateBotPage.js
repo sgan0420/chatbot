@@ -24,23 +24,11 @@ const uploadOptions = {
   ],
   advanced: [
     { title: "CSV files", description: "Upload CSV files containing texts." },
-    {
-      title: "Oracle",
-      description: "Provide frequently asked questions and answers.",
-    },
-    {
-      title: "JSONL",
-      description: "Answers based on the content of the webpage.",
-    },
-    { title: "RAW files", description: "Upload raw files containing texts." },
-    {
-      title: "XML files",
-      description: "Provide frequently asked questions and answers.",
-    },
-    {
-      title: "Text files",
-      description: "Answers based on the content of the webpage.",
-    },
+    { title: "Oracle", description: "Provide structured database queries." },
+    { title: "JSONL", description: "Upload JSONL formatted data." },
+    { title: "RAW files", description: "Upload raw text data." },
+    { title: "XML files", description: "Upload structured XML files." },
+    { title: "Text files", description: "Upload plain text documents." },
   ],
 };
 
@@ -55,18 +43,19 @@ function CreateBotPage() {
     name: "",
     description: "",
   });
+
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Fetch bot details if in edit mode
+  // Fetch bot details in edit mode
   useEffect(() => {
     if (isEditMode && botId) {
       const fetchBot = async () => {
         try {
           const bot = await getChatbot(botId);
           setBotData({
-            id: bot.id, // include id so that later we know it's an update
+            id: bot.id,
             name: bot.name,
             description: bot.description,
           });
@@ -78,17 +67,37 @@ function CreateBotPage() {
     }
   }, [botId, isEditMode]);
 
-  // Handle file selection from UploadCard
+  // Handle file selection
   const handleFileSelect = (file, fileType) => {
     setSelectedFiles((prev) => [...prev, { file, fileType }]);
   };
 
-  // Remove a file from the selected files list
+  // Remove file from the list
   const handleRemoveFile = (index) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Submit handler - creates or updates bot and uploads files
+  // Upload function with dynamic progress
+  const uploadFiles = async (chatbotId) => {
+    const totalFiles = selectedFiles.length;
+    if (totalFiles === 0) return;
+
+    for (let i = 0; i < totalFiles; i++) {
+      // Extract the file (ignore fileType since the uploadDocument function creates its own FormData)
+      const { file } = selectedFiles[i];
+
+      try {
+        // Pass the raw file to uploadDocument (no need to pre-create FormData)
+        await uploadDocument(chatbotId, file);
+        setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
+      } catch (error) {
+        console.error("File upload failed:", error);
+        alert(`Failed to upload ${file.name}. Please try again.`);
+      }
+    }
+  };
+
+  // Handle bot creation/update & file upload
   const handleSubmit = async () => {
     if (!botData.name) {
       alert("Bot name is required!");
@@ -99,46 +108,22 @@ function CreateBotPage() {
     setUploadProgress(0);
 
     try {
-      let newBotId;
+      let newBotId = botId;
 
       if (isEditMode && botId) {
-        // Update existing bot
-        console.log("Updating bot:", botData);
-        const response = await updateChatbot(botId, botData);
-        console.log("Bot updated:", response);
-        newBotId = botId;
+        await updateChatbot(botId, botData);
       } else {
-        // Create new bot
         const response = await createChatbot(botData);
-        console.log("Bot created:", response);
-        newBotId = response.id; // Get the new bot ID
-        // Optionally update botData state with new id:
+        newBotId = response.id;
         setBotData((prev) => ({ ...prev, id: response.id }));
       }
 
-      // Upload all selected files if any
-      if (selectedFiles.length > 0 && newBotId) {
-        const totalFiles = selectedFiles.length;
-        for (let i = 0; i < totalFiles; i++) {
-          const { file, fileType } = selectedFiles[i];
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("filetype", fileType);
-          formData.append("filename", file.name);
-
-          // Pass newBotId and formData to the uploadDocument API call
-          await uploadDocument(newBotId, formData);
-          // Update progress after each file is uploaded:
-          setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
-        }
-      }
+      await uploadFiles(newBotId);
 
       alert(
-        isEditMode
-          ? "Bot updated and files uploaded successfully!"
-          : "Bot created and files uploaded successfully!",
+        isEditMode ? "Bot updated successfully!" : "Bot created successfully!",
       );
-      navigate("/bots"); // Redirect to bots list
+      navigate("/bots");
     } catch (error) {
       console.error("Error:", error);
       alert(`Error: ${error.message || "Something went wrong"}`);
@@ -157,6 +142,7 @@ function CreateBotPage() {
       {/* Upload Section */}
       <div className="upload-data-form">
         <h2 className="text-xl font-semibold mb-4">Upload Your Data</h2>
+
         {/* Basic Upload Options */}
         <h3 className="text-lg font-medium mt-8 mb-6">Basic</h3>
         <div className="upload-grid">
@@ -169,6 +155,7 @@ function CreateBotPage() {
             />
           ))}
         </div>
+
         {/* Advanced Upload Options */}
         <h3 className="text-lg font-medium mt-8 mb-6">Advanced</h3>
         <div className="upload-grid">

@@ -64,9 +64,6 @@ export const getChatbot = async (id) => {
   }
 };
 
-// TODO: implement getChatbotDetail function
-export const getChatbotDetail = async (id) => {};
-
 // TODO: implement createChatbot function
 export const createChatbot = async (botData) => {};
 
@@ -83,14 +80,21 @@ export const updateChatbot = async (id, botData) => {
 // ========== DOCUMENT API CALLS ==========
 
 // Upload a document for a chatbot
-export const uploadDocument = async (chatbotId, formData) => {
+export const uploadDocument = async (chatbotId, file) => {
   try {
-    const response = await api.post(`/chatbot/upload/${chatbotId}`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+    const formData = new FormData();
+    formData.append("chatbot_id", chatbotId);
+    formData.append("file", file);
+
+    const response = await api.post("/chatbot/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
     });
-    return response.data;
+
+    return response.data.data;
   } catch (error) {
-    throw error;
+    throw error.response?.data || error.message;
   }
 };
 
