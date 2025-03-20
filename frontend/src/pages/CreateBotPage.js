@@ -2,7 +2,11 @@ import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import BotSettingsForm from "../components/BotSettingForm";
 import UploadCard from "../components/UploadCard";
-import { createChatbot, uploadDocument } from "../services/apiService";
+import {
+  createChatbot,
+  uploadDocument,
+  getChatbot,
+} from "../services/apiService";
 import "../styles/CreateBotPage.css";
 
 const uploadOptions = {
@@ -56,12 +60,19 @@ function CreateBotPage() {
 
   // Fetch bot details if in edit mode (your existing code)
   useEffect(() => {
-    if (isEditMode) {
-      // Your existing code to fetch bot details
-      setBotData({
-        name: `ChatBot ${botId}`,
-        description: `This is a placeholder description for bot ${botId}.`,
-      });
+    if (isEditMode && botId) {
+      const fetchBot = async () => {
+        try {
+          const bot = await getChatbot(botId); // Await the API call
+          setBotData({
+            name: bot.name,
+            description: bot.description,
+          });
+        } catch (error) {
+          console.error("Error fetching bot details:", error);
+        }
+      };
+      fetchBot();
     }
   }, [botId, isEditMode]);
 

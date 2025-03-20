@@ -15,27 +15,6 @@ const BotsPage = () => {
         setBots(response.chatbots || []);
       } catch (error) {
         console.error("Error fetching bots:", error);
-        // Fallback to demo data if API fails
-        setBots([
-          {
-            id: 1,
-            name: "ChatBot Alpha",
-            description: "AI-powered chatbot for customer support.",
-            image: "https://via.placeholder.com/80",
-          },
-          {
-            id: 2,
-            name: "ChatBot Beta",
-            description: "Automated assistant for e-commerce.",
-            image: "https://via.placeholder.com/80",
-          },
-          {
-            id: 3,
-            name: "ChatBot Gamma",
-            description: "Conversational AI for education.",
-            image: "https://via.placeholder.com/80",
-          },
-        ]);
       } finally {
         setLoading(false);
       }

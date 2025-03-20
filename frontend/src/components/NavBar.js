@@ -79,8 +79,8 @@ function NavBar() {
         {/* Mobile Menu */}
         {menuOpen && (
           <nav className="mobile-menu">
-            <a href="#">Pricing</a>
-            <a href="#">Solutions</a>
+            <a onClick={() => navigate("/dashboard")}>Dashboard</a>
+            <a onClick={() => navigate("/bots")}>Bots</a>
             <a href="#">Developers</a>
             <a href="#">Resources</a>
             <a href="#">FAQ</a>

@@ -3,15 +3,18 @@ import "../App.css";
 import robot from "../assets/robot.jpeg";
 import { createChatbot } from "../services/apiService"; // Import API function
 
-const BotSettingsForm = () => {
-  const [botName, setBotName] = useState("");
-  const [privacy, setPrivacy] = useState("");
-  const [aiModel, setAiModel] = useState("");
-  const [language, setLanguage] = useState("");
-  const [description, setDescription] = useState("");
+const BotSettingsForm = ({ botData, setBotData }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setBotData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,22 +22,11 @@ const BotSettingsForm = () => {
     setError(null);
     setSuccessMessage("");
 
-    const botData = {
-      name: botName,
-      privacy,
-      aiModel,
-      language,
-      description,
-    };
-
     try {
       await createChatbot(botData);
       setSuccessMessage("Chatbot settings saved successfully!");
-      setBotName("");
-      setPrivacy("");
-      setAiModel("");
-      setLanguage("");
-      setDescription("");
+      // Optionally clear botData if desired:
+      // setBotData({ name: "", description: "" });
     } catch (err) {
       setError("Failed to save chatbot settings. Please try again.");
     } finally {
@@ -50,13 +42,13 @@ const BotSettingsForm = () => {
           <input
             type="text"
             placeholder="Your bot's name"
-            value={botName}
-            onChange={(e) => setBotName(e.target.value)}
+            value={botData.name || ""}
+            onChange={handleChange}
             className="input"
             required
           />
 
-          <div className="grid-2">
+          {/* <div className="grid-2">
             <select
               value={privacy}
               onChange={(e) => setPrivacy(e.target.value)}
@@ -89,12 +81,12 @@ const BotSettingsForm = () => {
             <option value="english">English</option>
             <option value="spanish">Spanish</option>
             <option value="chinese">Chinese</option>
-          </select>
+          </select> */}
 
           <textarea
             placeholder="e.g. You are my personal tutor which helps me with my math homework"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            value={botData.description || ""}
+            onChange={handleChange}
             className="textarea"
           />
 
