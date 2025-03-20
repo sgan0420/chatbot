@@ -1,23 +1,34 @@
 import { useAuth } from "../context/AuthContext";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom"; // Import navigation
+import { useNavigate, useLocation } from "react-router-dom";
 import "../styles/AuthPage.css";
 
 function LoginPage() {
   const { isRegister, toggleRegister, login, signup } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState(""); // Added fullName state for signup
-  const navigate = useNavigate(); // Initialize navigation
+  const [fullName, setFullName] = useState("");
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleSubmit = (e) => {
+  // Get the route they were trying to access
+  const from = location.state?.from?.pathname || "/dashboard";
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!isRegister) {
-      login(email, password);
-      navigate("/dashboard");
-    } else {
-      signup(email, password, fullName); // Call signup function instead of alert
-      navigate("/dashboard");
+
+    try {
+      if (!isRegister) {
+        await login(email, password);
+      } else {
+        await signup(email, password, fullName);
+      }
+
+      // Navigate to the page they were trying to access
+      navigate(from, { replace: true });
+    } catch (error) {
+      console.error("Authentication error:", error);
+      // Handle errors as needed
     }
   };
 

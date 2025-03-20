@@ -4,23 +4,75 @@ import Footer from "./components/Footer";
 import NavBar from "./components/NavBar";
 import CreateBotPage from "./pages/CreateBotPage";
 import AuthModal from "./components/AuthModal";
-import Dashboard from "./pages/Dashboard"; // Add the Dashboard Page
-import EmbedPage from "./pages/EmbedPage"; // Add the Embed Page
+import Dashboard from "./pages/Dashboard";
+import EmbedPage from "./pages/EmbedPage";
 import LoginPage from "./pages/LoginPage";
 import BotsPage from "./pages/BotsPage";
-// import Home from "./pages/Home"; // Optional: A Home Page
+import BotDetailPage from "./pages/BotDetailPage";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
     <>
       <NavBar />
       <Routes>
-        {/* <Route path="/" element={<Home />} /> */}
-        <Route path="/create-bot" element={<CreateBotPage />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/embed/:botId" element={<EmbedPage />} />
+        {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/bots" element={<BotsPage />} />
+
+        {/* Protected routes */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/create-bot"
+          element={
+            <ProtectedRoute>
+              <CreateBotPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/bots"
+          element={
+            <ProtectedRoute>
+              <BotsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/bot/:id"
+          element={
+            <ProtectedRoute>
+              <BotDetailPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/embed/:botId"
+          element={
+            <ProtectedRoute>
+              <EmbedPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
       <AuthModal />
       <Footer />

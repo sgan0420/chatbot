@@ -46,51 +46,74 @@ export const logout = () => {
 // ========== CHATBOT API CALLS ==========
 
 // Fetch all chatbots
-export const getChatbots = async () => {
+export const getUserChatbots = async () => {
   try {
-    const response = await api.get("/chatbots");
+    const response = await api.get("/chatbot");
+    return response.data.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getChatbot = async (id) => {
+  try {
+    const response = await api.get(`/chatbot/${id}`);
+    return response.data.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// TODO: implement createChatbot function
+export const createChatbot = async (botData) => {};
+
+// New: implement updateChatbot function to update bot name and description
+export const updateChatbot = async (id, botData) => {
+  try {
+    const response = await api.put(`/chatbot/${id}`, botData);
+    return response.data.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// ========== DOCUMENT API CALLS ==========
+
+// Upload a document for a chatbot
+export const uploadDocument = async (chatbotId, file) => {
+  try {
+    const formData = new FormData();
+    formData.append("chatbot_id", chatbotId);
+    formData.append("file", file);
+
+    const response = await api.post("/chatbot/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    return response.data.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+// List documents for a chatbot
+export const listDocuments = async (chatbotId) => {
+  try {
+    const response = await api.get(`/chatbot/list/${chatbotId}`);
     return response.data;
   } catch (error) {
     throw error;
   }
 };
 
-// Fetch a single chatbot by ID
-export const getChatbotById = async (id) => {
+// Delete a document
+export const deleteDocument = async (payload) => {
   try {
-    const response = await api.get(`/chatbots/${id}`);
+    const response = await api.delete(`/chatbot/delete`, { data: payload });
     return response.data;
   } catch (error) {
     throw error;
   }
-};
-
-// Function to create a new chatbot
-export const createChatbot = async (botData) => {
-  try {
-    const response = await api.post("/chatbots", botData);
-    return response.data;
-  } catch (error) {
-    console.error(
-      "Error creating chatbot:",
-      error.response?.data || error.message,
-    );
-    throw error;
-  }
-};
-
-// Delete a chatbot
-export const deleteChatbot = async (id) => {
-  try {
-    await api.delete(`/chatbots/${id}`);
-  } catch (error) {
-    throw error;
-  }
-};
-
-// Upload a file
-export const uploadFile = async (formData) => {
-  return await api.post("/upload", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
 };
