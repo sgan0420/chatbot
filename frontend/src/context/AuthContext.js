@@ -13,6 +13,7 @@ export function AuthProvider({ children }) {
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [authInitialized, setAuthInitialized] = useState(false);
 
   // Check if user is already logged in (e.g., from localStorage)
   useEffect(() => {
@@ -20,9 +21,11 @@ export function AuthProvider({ children }) {
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
+    setAuthInitialized(true); // Set initialized state
   }, []);
 
   // Log in a user
+
   const login = async (email, password) => {
     try {
       setError(null);
@@ -30,21 +33,20 @@ export function AuthProvider({ children }) {
       const { user, accessToken } = await loginUser(email, password);
 
       if (accessToken) {
-        // Store token as "token" for Axios interceptor compatibility
         localStorage.setItem("token", accessToken);
         localStorage.setItem("user", JSON.stringify(user));
-
         setUser(user);
+        return true; // Return success status
       }
     } catch (error) {
       setError(error.message || "Authentication failed");
       console.error("Login failed:", error);
+      throw error; // Rethrow to allow handling in the component
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Sign up a new user
   const signup = async (email, password, display_name) => {
     try {
       setError(null);
@@ -56,15 +58,15 @@ export function AuthProvider({ children }) {
       );
 
       if (accessToken) {
-        // Store token as "token"
         localStorage.setItem("token", accessToken);
         localStorage.setItem("user", JSON.stringify(user));
-
         setUser(user);
+        return true; // Return success status
       }
     } catch (error) {
       setError(error.message || "Signup failed");
       console.error("Signup failed:", error);
+      throw error; // Rethrow to allow handling in the component
     } finally {
       setIsLoading(false);
     }
@@ -82,6 +84,11 @@ export function AuthProvider({ children }) {
   const openSignIn = () => setIsRegister(false);
   const openRegister = () => setIsRegister(true);
   const toggleRegister = () => setIsRegister(!isRegister);
+
+  // Don't render children until auth is initialized
+  if (!authInitialized) {
+    return null; // or you can return a loading spinner
+  }
 
   return (
     <AuthContext.Provider
