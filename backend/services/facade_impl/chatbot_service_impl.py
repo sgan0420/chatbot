@@ -2,9 +2,10 @@ import uuid
 from models.request.chatbot_request import UploadDocumentRequest, DeleteDocumentRequest
 from config import get_supabase_client
 from exceptions.database_exception import DatabaseException
-from models.response.chatbot_response import ChatbotListResponse, DocumentListResponse
+from models.response.chatbot_response import ChatbotListResponse, DocumentListResponse, Chatbot
 from models.response.response_wrapper import SuccessResponse, ErrorResponse
 from services.facade.chatbot_service import ChatbotService
+import logging
 
 BUCKET_NAME = "DOCUMENTS"
 
@@ -13,6 +14,7 @@ class ChatbotServiceImpl(ChatbotService):
         self.supabase = get_supabase_client(user_token)
 
     def get_user_chatbots(self, user_id: str) -> tuple:
+        logging.info(f"Fetching chatbots for user: {user_id}")
         try:
             response = (
                 self.supabase.table("chatbots")
@@ -21,11 +23,50 @@ class ChatbotServiceImpl(ChatbotService):
                 .execute()
             )
             chatbot_list_response = ChatbotListResponse(chatbots=response.data)
+            logging.info(f"Chatbots fetched successfully: {chatbot_list_response}")
 
         except Exception as e:
             raise DatabaseException("Error fetching chatbots", data={"error": str(e)})
 
         return SuccessResponse(data=chatbot_list_response).model_dump(), 200
+    
+    def get_chatbot(self, chatbot_id: str) -> tuple:
+        """Get a single chatbot by ID"""
+        logging.info(f"Fetching chatbot with ID: {chatbot_id}")
+        try:
+            response = (
+                self.supabase.table("chatbots")
+                .select("*")
+                .eq("id", chatbot_id)
+                .single()
+                .execute()
+            )
+            
+            # Check if a chatbot was found
+            if not response.data:
+                logging.warning(f"No chatbot found with ID: {chatbot_id}")
+                return ErrorResponse(
+                    message="Chatbot not found"
+                ).model_dump(), 404
+                
+            chatbot_response = Chatbot(
+                id=response.data["id"],
+                user_id=response.data["user_id"],
+                name=response.data["name"],
+                description=response.data["description"],
+                created_at=response.data["created_at"],
+                updated_at=response.data["updated_at"]
+            )
+            logging.info(f"Chatbot fetched successfully: {chatbot_response}")
+            
+            return SuccessResponse[Chatbot](
+                data=chatbot_response,
+                message="Chatbot fetched successfully"
+            ).model_dump(), 200
+            
+        except Exception as e:
+            logging.error(f"Error fetching chatbot: {str(e)}")
+            raise DatabaseException("Error fetching chatbot", data={"error": str(e)})
 
     def upload_document(self, user_id: str, data: UploadDocumentRequest) -> tuple:
         """Upload a document to Supabase bucket"""
