@@ -16,16 +16,18 @@ def get_user_chatbots():
     response, status_code = chatbot_service.get_user_chatbots(user_id)
     return jsonify(response), status_code
 
-@chatbot_api.route("/upload/<chatbot_id>", methods=["POST"])
+@chatbot_api.route("/upload", methods=["POST"])
 @require_auth
-def upload_document(chatbot_id: str):
+def upload_document():
     try:
+        user_id = g.user_id
+        user_token = g.user_token
         data = UploadDocumentRequest(
-            chatbot_id=chatbot_id,
+            chatbot_id=request.form["chatbot_id"],
             file=request.files['file']
         )
-        chatbot_service = ChatbotServiceImpl(g.user_id, g.user_token)
-        response, status_code = chatbot_service.upload_document(data)
+        chatbot_service = ChatbotServiceImpl(user_token)
+        response, status_code = chatbot_service.upload_document(user_id, data)
         return jsonify(response), status_code
         
     except Exception as e:
@@ -37,7 +39,8 @@ def upload_document(chatbot_id: str):
 @require_auth
 def list_documents(chatbot_id: str):
     try:
-        chatbot_service = ChatbotServiceImpl(g.user_id, g.user_token)
+        user_token = g.user_token
+        chatbot_service = ChatbotServiceImpl(user_token)
         response, status_code = chatbot_service.list_documents(chatbot_id)
         return jsonify(response), status_code
     except Exception as e:
@@ -49,9 +52,11 @@ def list_documents(chatbot_id: str):
 @require_auth
 def delete_document():
     try:
-        validated_data = DeleteDocumentRequest(**request.json)
-        chatbot_service = ChatbotServiceImpl(g.user_id, g.user_token)
-        response, status_code = chatbot_service.delete_document(validated_data)
+        user_id = g.user_id
+        user_token = g.user_token
+        data = DeleteDocumentRequest(**request.json)
+        chatbot_service = ChatbotServiceImpl(user_token)
+        response, status_code = chatbot_service.delete_document(user_id, data)
         return jsonify(response), status_code
     except Exception as e:
         return jsonify(ErrorResponse(

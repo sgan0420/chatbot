@@ -1,5 +1,5 @@
 import uuid
-from chatbot.backend.models.request.chatbot_request import UploadDocumentRequest, DeleteDocumentRequest
+from models.request.chatbot_request import UploadDocumentRequest, DeleteDocumentRequest
 from config import get_supabase_client
 from exceptions.database_exception import DatabaseException
 from models.response.chatbot_response import ChatbotListResponse, DocumentListResponse
@@ -9,8 +9,7 @@ from services.facade.chatbot_service import ChatbotService
 BUCKET_NAME = "DOCUMENTS"
 
 class ChatbotServiceImpl(ChatbotService):
-    def __init__(self, user_id=None, user_token=None):
-        self.user_id = user_id
+    def __init__(self, user_token=None):
         self.supabase = get_supabase_client(user_token)
 
     def get_user_chatbots(self, user_id: str) -> tuple:
@@ -28,7 +27,7 @@ class ChatbotServiceImpl(ChatbotService):
 
         return SuccessResponse(data=chatbot_list_response).model_dump(), 200
 
-    def upload_document(self, data: UploadDocumentRequest) -> tuple:
+    def upload_document(self, user_id: str, data: UploadDocumentRequest) -> tuple:
         """Upload a document to Supabase bucket"""
         try:
             document_id = str(uuid.uuid4())
@@ -36,10 +35,15 @@ class ChatbotServiceImpl(ChatbotService):
             file = data.file
             file_name = file.filename
             file_type = file_name.split(".")[-1]            
-            bucket_path = f"{self.user_id}/{chatbot_id}/document/{file_name}"
+            bucket_path = f"{user_id}/{chatbot_id}/document/{file_name}"
+
+            file_content = file.read()
             
             # Upload the file to storage bucket
-            self.supabase.storage.from_(BUCKET_NAME).upload(bucket_path, file)
+            self.supabase.storage.from_(BUCKET_NAME).upload(bucket_path, file_content)
+
+            file.seek(0) # Reset file pointer for potential future use
+
             # Save document metadata to database
             document_data = {
                 "id": document_id,
@@ -75,12 +79,12 @@ class ChatbotServiceImpl(ChatbotService):
         
         return SuccessResponse(data=document_list_response).model_dump(), 200
     
-    def delete_document(self, data: DeleteDocumentRequest) -> tuple:
+    def delete_document(self, user_id: str, data: DeleteDocumentRequest) -> tuple:
         try:
             document_id = data.document_id
             chatbot_id = data.chatbot_id
             file_name = self.supabase.table("documents").select("file_name").eq("id", document_id).single().execute().data["file_name"]
-            bucket_path = f"{self.user_id}/{chatbot_id}/document/{file_name}"
+            bucket_path = f"{user_id}/{chatbot_id}/document/{file_name}"
             # Remove the file from the bucket
             self.supabase.storage.from_(BUCKET_NAME).remove([bucket_path])
             # Delete the document from the database
