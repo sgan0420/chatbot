@@ -70,6 +70,16 @@ export const getChatbotDetail = async (id) => {};
 // TODO: implement createChatbot function
 export const createChatbot = async (botData) => {};
 
+// New: implement updateChatbot function to update bot name and description
+export const updateChatbot = async (id, botData) => {
+  try {
+    const response = await api.put(`/chatbot/${id}`, botData);
+    return response.data.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
 // ========== DOCUMENT API CALLS ==========
 
 // Upload a document for a chatbot

@@ -67,6 +67,44 @@ class ChatbotServiceImpl(ChatbotService):
         except Exception as e:
             logging.error(f"Error fetching chatbot: {str(e)}")
             raise DatabaseException("Error fetching chatbot", data={"error": str(e)})
+        
+    def update_chatbot(self, chatbot_id: str, data: dict) -> tuple:
+        """Update a chatbot's name and description"""
+        logging.info(f"Updating chatbot {chatbot_id} with data: {data}")
+        try:
+            # Update only the name and description fields
+            update_data = {
+                "name": data.get("name"),
+                "description": data.get("description"),
+            }
+            response = (
+                self.supabase.table("chatbots")
+                .update(update_data)
+                .eq("id", chatbot_id)
+                .execute()
+            )
+            if response.data and len(response.data) > 0:
+                updated = response.data[0]
+                # Build a Chatbot model using updated data
+                chatbot_response = Chatbot(
+                    id=updated["id"],
+                    user_id=updated["user_id"],
+                    name=updated["name"],
+                    description=updated["description"],
+                    created_at=updated["created_at"],
+                    updated_at=updated["updated_at"],
+                )
+                logging.info(f"Chatbot updated successfully: {chatbot_response}")
+                return SuccessResponse(
+                    data=chatbot_response, 
+                    message="Chatbot updated successfully"
+                ).model_dump(), 200
+            else:
+                logging.warning(f"Chatbot {chatbot_id} not found")
+                return ErrorResponse(message="Chatbot not found").model_dump(), 404
+        except Exception as e:
+            logging.error(f"Error updating chatbot: {str(e)}")
+            raise DatabaseException("Error updating chatbot", data={"error": str(e)})
 
     def upload_document(self, user_id: str, data: UploadDocumentRequest) -> tuple:
         """Upload a document to Supabase bucket"""
