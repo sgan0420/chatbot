@@ -1,10 +1,8 @@
-import { useState, useRef } from "react";
-import axios from "../services/api"; // Import the Axios instance
+import React, { useState, useRef } from "react";
 import "../styles/UploadCard.css";
 
-function UploadCard({ title, description, advanced = false }) {
-  const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef(null); // Create a ref for the file input
+function UploadCard({ title, description, advanced = false, onFileSelect }) {
+  const fileInputRef = useRef(null);
 
   // Define allowed file types based on title
   const fileTypes = {
@@ -19,37 +17,17 @@ function UploadCard({ title, description, advanced = false }) {
     "Text files": ".txt",
   };
 
-  const handleFileChange = async (event) => {
+  const handleFileChange = (event) => {
     const file = event.target.files[0];
-    if (file) {
-      await handleUpload(file); // Automatically trigger upload
+    if (file && onFileSelect) {
+      onFileSelect(file);
+      // Reset file input to allow selecting the same file again
+      fileInputRef.current.value = null;
     }
   };
 
   const handleUploadClick = () => {
-    fileInputRef.current.click(); // Open file selection dialog
-  };
-
-  const handleUpload = async (file) => {
-    if (!file) return;
-
-    setIsUploading(true);
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("fileType", title); // Pass file type for backend processing
-
-    try {
-      const response = await axios.post("/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      alert(`Upload successful: ${response.data.message}`);
-    } catch (error) {
-      alert(`Upload failed: ${error.response?.data || error.message}`);
-    } finally {
-      setIsUploading(false);
-    }
+    fileInputRef.current.click();
   };
 
   return (
@@ -60,12 +38,8 @@ function UploadCard({ title, description, advanced = false }) {
       {advanced && <p className="upload-pricing">View pricing</p>}
 
       {/* File Selection Button */}
-      <button
-        className="upload-button"
-        onClick={handleUploadClick}
-        disabled={isUploading}
-      >
-        {isUploading ? "Uploading..." : "Upload"}
+      <button className="upload-button" onClick={handleUploadClick}>
+        Select File
       </button>
 
       {/* Hidden File Input */}
@@ -73,8 +47,9 @@ function UploadCard({ title, description, advanced = false }) {
         type="file"
         ref={fileInputRef}
         className="hidden"
+        style={{ display: "none" }}
         accept={fileTypes[title] || "*"}
-        onChange={handleFileChange} // Triggers upload automatically
+        onChange={handleFileChange}
       />
     </div>
   );

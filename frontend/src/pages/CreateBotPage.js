@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import BotSettingsForm from "../components/BotSettingForm";
 import UploadCard from "../components/UploadCard";
+import { createChatbot, uploadDocument } from "../services/apiService";
 import "../styles/CreateBotPage.css";
 
 const uploadOptions = {
@@ -42,18 +43,21 @@ function CreateBotPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
-  const botId = queryParams.get("id"); // Get bot ID from URL
-  const isEditMode = Boolean(botId); // If there's an ID, we're in edit mode
+  const botId = queryParams.get("id");
+  const isEditMode = Boolean(botId);
 
   const [botData, setBotData] = useState({
     name: "",
     description: "",
   });
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Fetch bot details if in edit mode
+  // Fetch bot details if in edit mode (your existing code)
   useEffect(() => {
     if (isEditMode) {
-      // Simulate fetching bot details (replace with real API call)
+      // Your existing code to fetch bot details
       setBotData({
         name: `ChatBot ${botId}`,
         description: `This is a placeholder description for bot ${botId}.`,
@@ -61,15 +65,73 @@ function CreateBotPage() {
     }
   }, [botId, isEditMode]);
 
-  const handleSubmit = () => {
-    if (isEditMode) {
-      console.log("Updating bot:", botData);
-      alert("Bot updated successfully!");
-    } else {
-      console.log("Creating new bot:", botData);
-      alert("Bot created successfully!");
+  // Handle file selection from UploadCard
+  const handleFileSelect = (file, fileType) => {
+    setSelectedFiles((prev) => [...prev, { file, fileType }]);
+  };
+
+  // Remove a file from the selected files list
+  const handleRemoveFile = (index) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Submit handler - creates bot and uploads files
+  const handleSubmit = async () => {
+    if (!botData.name) {
+      alert("Bot name is required!");
+      return;
     }
-    navigate("/bots"); // Redirect back to bots list
+
+    setIsSubmitting(true);
+    setUploadProgress(0);
+
+    try {
+      // Step 1: Create or update the bot
+      let newBotId;
+
+      if (isEditMode) {
+        // Update existing bot (replace with your API call)
+        console.log("Updating bot:", botData);
+        newBotId = botId; // Use existing bot ID
+      } else {
+        // Create new bot
+        const response = await createChatbot(botData);
+        console.log("Bot created:", response);
+        newBotId = response.id; // Get the new bot ID
+      }
+
+      // Step 2: Upload all selected files
+      if (selectedFiles.length > 0 && newBotId) {
+        const totalFiles = selectedFiles.length;
+
+        for (let i = 0; i < totalFiles; i++) {
+          const { file, fileType } = selectedFiles[i];
+
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("filetype", fileType);
+          formData.append("filename", file.name);
+
+          await uploadDocument(newBotId, formData);
+
+          // Update progress
+          setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
+        }
+      }
+
+      alert(
+        isEditMode
+          ? "Bot updated and files uploaded successfully!"
+          : "Bot created and files uploaded successfully!",
+      );
+
+      navigate("/bots"); // Redirect to bots page
+    } catch (error) {
+      console.error("Error:", error);
+      alert(`Error: ${error.message || "Something went wrong"}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -91,6 +153,7 @@ function CreateBotPage() {
               key={index}
               title={option.title}
               description={option.description}
+              onFileSelect={(file) => handleFileSelect(file, option.title)}
             />
           ))}
         </div>
@@ -104,14 +167,63 @@ function CreateBotPage() {
               title={option.title}
               description={option.description}
               advanced
+              onFileSelect={(file) => handleFileSelect(file, option.title)}
             />
           ))}
         </div>
       </div>
 
+      {/* Selected Files List */}
+      {selectedFiles.length > 0 && (
+        <div className="selected-files">
+          <h3>Files to Upload ({selectedFiles.length})</h3>
+          <ul>
+            {selectedFiles.map((item, index) => (
+              <li key={index} className="file-item">
+                <span className="file-name">{item.file.name}</span>
+                <span className="file-type">{item.fileType}</span>
+                <span className="file-size">
+                  ({(item.file.size / 1024).toFixed(1)} KB)
+                </span>
+                <button
+                  className="remove-file"
+                  onClick={() => handleRemoveFile(index)}
+                  disabled={isSubmitting}
+                >
+                  x
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Upload Progress */}
+      {isSubmitting && uploadProgress > 0 && (
+        <div className="upload-progress">
+          <div className="progress-bar">
+            <div
+              className="progress-fill"
+              style={{ width: `${uploadProgress}%` }}
+            ></div>
+          </div>
+          <span>{uploadProgress}% complete</span>
+        </div>
+      )}
+
       {/* Create or Save Button */}
-      <button className="create-save-button" onClick={handleSubmit}>
-        {isEditMode ? "Save" : "Create"}
+      <button
+        className="create-save-button"
+        onClick={handleSubmit}
+        disabled={isSubmitting}
+      >
+        {isSubmitting
+          ? isEditMode
+            ? "Saving..."
+            : "Creating..."
+          : isEditMode
+            ? "Save"
+            : "Create"}
       </button>
     </div>
   );
