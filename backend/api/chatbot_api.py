@@ -56,7 +56,7 @@ def update_chatbot(chatbot_id: str):
 
 @chatbot_api.route("/<chatbot_id>", methods=["DELETE"])
 @require_auth
-def get_chatbot_details(chatbot_id):
+def delete_chatbot(chatbot_id):
     user_id = g.user_id
     user_token = g.user_token
     chatbot_service = ChatbotServiceImpl(user_token)
