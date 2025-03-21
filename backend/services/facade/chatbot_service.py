@@ -13,10 +13,6 @@ class ChatbotService(ABC):
     def create_chatbot(self, user_id: str, data: dict) -> tuple:
         pass
 
-    # @abstractmethod
-    # def get_chatbot_details(self, user_id: str, chatbot_id: str) -> tuple:
-    #     pass
-
     @abstractmethod
     def get_chatbot(self, chatbot_id: str) -> tuple:
         pass
