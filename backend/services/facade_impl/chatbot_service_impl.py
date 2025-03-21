@@ -138,14 +138,15 @@ class ChatbotServiceImpl(ChatbotService):
     def delete_chatbot(self, user_id, chatbot_id):
         """Delete chatbot and all associated documents."""
         try:
-            documents = self.supabase.table("documents").select("file_name").eq("chatbot_id", chatbot_id).execute().data
-
-            for document in documents:
-                file_path = f"{user_id}/{chatbot_id}/document/{document['file_name']}"
-                self.supabase.storage.from_(BUCKET_NAME).remove([file_path])
-
+            folders = [f"{user_id}/{chatbot_id}/document/", f"{user_id}/{chatbot_id}/rag-vector/"]
+            for folder_path in folders:
+                files = self.supabase.storage.from_(BUCKET_NAME).list(folder_path)
+                file_paths = [f"{folder_path}{file['name']}" for file in files if 'name' in file]
+                if file_paths:
+                    self.supabase.storage.from_(BUCKET_NAME).remove(file_paths)
             self.supabase.table("chatbots").delete().eq("id", chatbot_id).execute()
-
+            self.supabase.table("documents").delete().eq("chatbot_id", chatbot_id).execute()
+            logging.info(f"Chatbot {chatbot_id} and its folder deleted successfully.")
             return SuccessResponse(message="Chatbot deleted successfully.").model_dump(),200
         except Exception as e:
             raise DatabaseException("Error deleting chatbots", data={"error": str(e)})
