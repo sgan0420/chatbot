@@ -144,7 +144,7 @@ class ChatbotServiceImpl(ChatbotService):
                 file_path = f"{user_id}/{chatbot_id}/document/{document['file_name']}"
                 self.supabase.storage.from_(BUCKET_NAME).remove([file_path])
 
-            self.supabase.table("chatbot").delete().eq("user_id", user_id).eq("id", chatbot_id).execute()
+            self.supabase.table("chatbots").delete().eq("id", chatbot_id).execute()
 
             return SuccessResponse(message="Chatbot deleted successfully.").model_dump(),200
         except Exception as e:
