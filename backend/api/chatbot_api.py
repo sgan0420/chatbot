@@ -16,6 +16,16 @@ def get_user_chatbots():
     response, status_code = chatbot_service.get_user_chatbots(user_id)
     return jsonify(response), status_code
 
+@chatbot_api.route("/<chatbot_id>", methods=["DELETE"])
+@require_auth
+def get_chatbot_details(chatbot_id):
+    user_id = g.user_id
+    user_token = g.user_token
+    chatbot_service = ChatbotServiceImpl(user_token)
+
+    response, status_code = chatbot_service.delete_chatbot(user_id, chatbot_id)
+    return jsonify(response), status_code
+
 @chatbot_api.route("/upload", methods=["POST"])
 @require_auth
 def upload_document():

@@ -27,6 +27,21 @@ class ChatbotServiceImpl(ChatbotService):
 
         return SuccessResponse(data=chatbot_list_response).model_dump(), 200
 
+    def delete_chatbot(self, user_id, chatbot_id):
+        """Delete chatbot and all associated documents."""
+        try:
+            documents = self.supabase.table("documents").select("file_name").eq("chatbot_id", chatbot_id).execute().data
+
+            for document in documents:
+                file_path = f"{user_id}/{chatbot_id}/document/{document['file_name']}"
+                self.supabase.storage.from_(BUCKET_NAME).remove([file_path])
+
+            self.supabase.table("chatbot").delete().eq("user_id", user_id).eq("id", chatbot_id).execute()
+
+            return SuccessResponse(message="Chatbot deleted successfully.").model_dump(),200
+        except Exception as e:
+            raise DatabaseException("Error deleting chatbots", data={"error": str(e)})
+
     def upload_document(self, user_id: str, data: UploadDocumentRequest) -> tuple:
         """Upload a document to Supabase bucket"""
         try:
