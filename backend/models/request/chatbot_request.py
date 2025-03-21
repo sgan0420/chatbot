@@ -7,6 +7,10 @@ class UploadDocumentRequest(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+        
+class CreateChatbotRequest(BaseModel):
+    name: str
+    description: str
 
 class DeleteDocumentRequest(BaseModel):
     chatbot_id: str

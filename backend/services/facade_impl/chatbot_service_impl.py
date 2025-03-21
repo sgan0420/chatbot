@@ -2,7 +2,7 @@ import uuid
 from models.request.chatbot_request import UploadDocumentRequest, DeleteDocumentRequest
 from config import get_supabase_client
 from exceptions.database_exception import DatabaseException
-from models.response.chatbot_response import ChatbotListResponse, DocumentListResponse, Chatbot
+from models.response.chatbot_response import ChatbotListResponse, DocumentListResponse, Chatbot, CreateChatbotResponse
 from models.response.response_wrapper import SuccessResponse, ErrorResponse
 from services.facade.chatbot_service import ChatbotService
 import logging
@@ -29,7 +29,36 @@ class ChatbotServiceImpl(ChatbotService):
             raise DatabaseException("Error fetching chatbots", data={"error": str(e)})
 
         return SuccessResponse(data=chatbot_list_response).model_dump(), 200
-    
+
+    def create_chatbot(self, user_id: str, data: dict) -> tuple:
+        logging.info(f"Creating a new chatbot for user: {user_id}")
+        try:
+            chatbot_data = {
+                "user_id": user_id,
+                "name": data.name,
+                "description": data.description,
+            }
+            response = (
+                self.supabase.table("chatbots")
+                .insert(chatbot_data)
+                .execute()
+            )
+            chatbot_response = CreateChatbotResponse(
+                id=response.data[0]["id"],
+                user_id=user_id,
+                name=data.name,
+                description=data.description,
+                created_at=response.data[0]["created_at"],
+                updated_at=response.data[0]["updated_at"]
+            )
+            return SuccessResponse(
+                data=chatbot_response,
+                message="Chatbot created successfully"
+            ).model_dump(), 201
+
+        except Exception as e:
+            raise DatabaseException("Error creating chatbot", data={"error": str(e)})
+
     def get_chatbot(self, chatbot_id: str) -> tuple:
         """Get a single chatbot by ID"""
         logging.info(f"Fetching chatbot with ID: {chatbot_id}")
