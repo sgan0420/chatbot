@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
-from models.request.chatbot_request import UploadDocumentRequest, DeleteDocumentRequest
+
+from models.request.chatbot_request import DeleteDocumentRequest, UploadDocumentRequest
+
 
 class ChatbotService(ABC):
     # 1. Manage Chatbots
@@ -7,16 +9,16 @@ class ChatbotService(ABC):
     def get_user_chatbots(self, user_id: str) -> tuple:
         pass
 
-    # @abstractmethod
-    # def create_chatbot(self, user_id: str, data: dict) -> tuple:
-    #     pass
-
     @abstractmethod
-    def get_chatbot_details(self, user_id: str, chatbot_id: str) -> tuple:
+    def create_chatbot(self, user_id: str, data: dict) -> tuple:
         pass
 
     @abstractmethod
-    def update_chatbot(self, user_id: str, chatbot_id: str, data: dict) -> tuple:
+    def get_chatbot(self, chatbot_id: str) -> tuple:
+        pass
+
+    @abstractmethod
+    def update_chatbot(self, chatbot_id: str, data: dict) -> tuple:
         pass
 
     @abstractmethod

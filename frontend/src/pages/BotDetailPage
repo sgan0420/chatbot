@@ -1,0 +1,166 @@
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { getChatbotDetail, listDocuments, deleteDocume, getChatbotDetailnt } from "../services/apiService";
+import "../styles/BotDetailPage.css";
+
+const BotDetailPage = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [bot, setBot] = useState(null);
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  useEffect(() => {
+    const fetchBotAndDocuments = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch bot details
+        const botResponse = await getChatbotDetail(id);
+        setBot(botResponse);
+        
+        // Fetch documents
+        const docsResponse = await listDocuments(id);
+        setDocuments(docsResponse.documents || []);
+        
+        setError(null);
+      } catch (err) {
+        console.error("Error loading bot details:", err);
+        setError("Failed to load bot details and documents.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBotAndDocuments();
+  }, [id]);
+
+  const handleDeleteDocument = async (documentId) => {
+    // First click sets confirmDelete to the document ID
+    if (confirmDelete !== documentId) {
+      setConfirmDelete(documentId);
+      return;
+    }
+    
+    // Second click confirms deletion
+    try {
+      await deleteDocument({ 
+        chatbotId: id, 
+        documentId 
+      });
+      
+      // Update documents list by filtering out the deleted document
+      setDocuments(documents.filter(doc => doc.id !== documentId));
+      
+      // Reset confirmation
+      setConfirmDelete(null);
+    } catch (err) {
+      console.error("Error deleting document:", err);
+      alert("Failed to delete document. Please try again.");
+    }
+  };
+
+  // Group documents by file type
+  const getDocumentsByType = () => {
+    const groupedDocs = {};
+    
+    documents.forEach(doc => {
+      const fileType = doc.filetype || "Other";
+      if (!groupedDocs[fileType]) {
+        groupedDocs[fileType] = [];
+      }
+      groupedDocs[fileType].push(doc);
+    });
+    
+    return groupedDocs;
+  };
+
+  if (loading) return <div className="loading-container">Loading bot details...</div>;
+  if (error) return <div className="error-container">{error}</div>;
+  if (!bot) return <div className="error-container">Bot not found.</div>;
+
+  const groupedDocuments = getDocumentsByType();
+
+  return (
+    <div className="bot-detail-page">
+      <div className="bot-detail-header">
+        <button className="back-button" onClick={() => navigate("/bots")}>
+          Back to Bots
+        </button>
+        <h1>{bot.name}</h1>
+        <p className="bot-description">{bot.description}</p>
+      </div>
+
+      <div className="bot-actions">
+        <button 
+          className="primary-button" 
+          onClick={() => navigate(`/create-bot?edit=true&id=${id}`)}
+        >
+          Edit Bot
+        </button>
+        <button 
+          className="secondary-button" 
+          onClick={() => navigate(`/embed/${id}`)}
+        >
+          Embed Code
+        </button>
+      </div>
+
+      <div className="bot-documents-section">
+        <div className="documents-header">
+          <h2>Bot Documents</h2>
+          <button 
+            className="upload-button" 
+            onClick={() => navigate(`/create-bot?edit=true&id=${id}#upload`)}
+          >
+            Upload New Documents
+          </button>
+        </div>
+
+        {documents.length === 0 ? (
+          <div className="no-documents">
+            <p>No documents have been uploaded to this bot yet.</p>
+            <button 
+              className="primary-button"
+              onClick={() => navigate(`/create-bot?edit=true&id=${id}#upload`)}
+            >
+              Upload Documents
+            </button>
+          </div>
+        ) : (
+          <div className="documents-by-type">
+            {Object.entries(groupedDocuments).map(([fileType, docs]) => (
+              <div key={fileType} className="document-type-group">
+                <h3>{fileType}</h3>
+                <div className="documents-list">
+                  {docs.map(doc => (
+                    <div key={doc.id} className="document-item">
+                      <div className="document-info">
+                        <div className="document-name">
+                          {doc.filename || doc.name || "Untitled Document"}
+                        </div>
+                        <div className="document-date">
+                          {new Date(doc.created_at || doc.uploaded_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <button 
+                        className={`delete-button ${confirmDelete === doc.id ? 'confirm' : ''}`}
+                        onClick={() => handleDeleteDocument(doc.id)}
+                      >
+                        {confirmDelete === doc.id ? 'Confirm Delete' : 'Delete'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default BotDetailPage;

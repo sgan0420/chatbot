@@ -79,15 +79,17 @@ function NavBar() {
         {/* Mobile Menu */}
         {menuOpen && (
           <nav className="mobile-menu">
-            <a href="#">Pricing</a>
-            <a href="#">Solutions</a>
+            <a onClick={() => navigate("/dashboard")}>Dashboard</a>
+            <a onClick={() => navigate("/bots")}>Bots</a>
             <a href="#">Developers</a>
             <a href="#">Resources</a>
             <a href="#">FAQ</a>
             <a href="#">Contact</a>
             {user ? (
               <>
-                <span className="user-email">{user.email}</span>
+                <span className="user-email">
+                  {user.user_metadata?.display_name || user.email}
+                </span>
                 <button className="logout-button" onClick={logout}>
                   Logout
                 </button>

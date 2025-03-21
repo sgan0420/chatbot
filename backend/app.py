@@ -7,12 +7,27 @@ from exceptions.unauthorized_exception import UnauthorizedException
 from flask import Flask, jsonify
 from flask_cors import CORS
 from models.response.response_wrapper import ErrorResponse
+import logging
+import os
+import sys
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler("app.log"),
+    ]
+)
+
+logger = logging.getLogger(__name__)
 
 
 def create_app():
     app = Flask(__name__)
     CORS(app)
 
+    logger.info("Creating app")
     app.register_blueprint(auth_api, url_prefix="/api/auth")
     app.register_blueprint(rag_api, url_prefix="/api/rag")
     app.register_blueprint(chatbot_api, url_prefix="/api/chatbot")
