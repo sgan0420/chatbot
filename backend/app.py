@@ -1,5 +1,6 @@
 from api.auth_api import auth_api
 from api.chatbot_api import chatbot_api
+from api.chat_api import chat_api
 from api.rag_api import rag_api
 from exceptions.database_exception import DatabaseException
 from exceptions.base_api_exception import BaseAPIException
@@ -30,6 +31,7 @@ def create_app():
     logger.info("Creating app")
     app.register_blueprint(auth_api, url_prefix="/api/auth")
     app.register_blueprint(rag_api, url_prefix="/api/rag")
+    app.register_blueprint(chat_api, url_prefix="/api/chat")
     app.register_blueprint(chatbot_api, url_prefix="/api/chatbot")
 
     @app.route("/")

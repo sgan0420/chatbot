@@ -22,8 +22,8 @@ from langchain.prompts.chat import (
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
-from models.request.rag_request import ChatRequest, ProcessDocumentsRequest, GetChatHistoryRequest
-from models.response.rag_response import ChatResponse, ProcessDocumentsResponse
+from models.request.rag_request import ChatRequest, ProcessDocumentsRequest, GetChatHistoryRequest, CreateSessionRequest
+from models.response.rag_response import ChatResponse, ProcessDocumentsResponse, CreateSessionResponse
 from models.response.response_wrapper import ErrorResponse, SuccessResponse
 from PyPDF2 import PdfReader
 from services.facade.rag_service import RAGService
@@ -415,6 +415,48 @@ class RAGServiceImpl(RAGService):
             ).model_dump(), 500
 
 
+    def create_session(self, user_token: str, data: CreateSessionRequest) -> tuple[dict, int]:
+        """Create a new chat session"""
+        try:
+            supabase = get_supabase_client(user_token)
+            chatbot_id = data.chatbot_id
+            session_id = str(uuid.uuid4())
+
+            # Check if the chatbot exists and has a vector store
+            result = supabase.table('documents') \
+                .select('*') \
+                .eq('chatbot_id', chatbot_id) \
+                .eq('file_type', 'faiss') \
+                .single() \
+                .execute()
+                
+            if not result.data:
+                return ErrorResponse(
+                    message="No vector store found for this chatbot. Please process documents first."
+                ).model_dump(), 400
+
+            # Create a new session
+            session_data = {
+                'id': session_id,
+                'chatbot_id': chatbot_id,
+            }
+            
+            supabase.table('chat_sessions').insert(session_data).execute()
+            
+            return SuccessResponse(
+                data=CreateSessionResponse(
+                    session_id=session_id
+                ).model_dump(),
+                message="Chat session created successfully"
+            ).model_dump(), 200
+            
+        except Exception as e:
+            logging.error(f"Error creating chat session: {str(e)}")
+            return ErrorResponse(
+                message="Failed to create chat session"
+            ).model_dump(), 500
+
+
     def chat(self, user_id: str, user_token: str, data: ChatRequest) -> tuple[dict, int]:
         """Process user query and return response"""
         supabase = get_supabase_client(user_token)
@@ -467,7 +509,7 @@ class RAGServiceImpl(RAGService):
             ).model_dump(), 500
 
 
-    def get_chat_history(self, user_id: str, user_token: str, data: GetChatHistoryRequest) -> tuple[dict, int]:
+    def get_chat_history(self, user_token: str, data: GetChatHistoryRequest) -> tuple[dict, int]:
         """Get chat history for a specific chat session"""
         supabase = get_supabase_client(user_token)
         chatbot_id = data.chatbot_id
