@@ -151,6 +151,7 @@ class ChatbotServiceImpl(ChatbotService):
         except Exception as e:
             raise DatabaseException("Error deleting chatbots", data={"error": str(e)})
 
+
     def upload_document(self, user_id: str, data: UploadDocumentRequest) -> tuple:
         """Upload a document to Supabase bucket"""
         try:
@@ -158,24 +159,36 @@ class ChatbotServiceImpl(ChatbotService):
             chatbot_id = data.chatbot_id
             file = data.file
             file_name = file.filename
-            file_type = file_name.split(".")[-1]            
+            file_type = file_name.split(".")[-1]
             bucket_path = f"{user_id}/{chatbot_id}/document/{file_name}"
 
-            file_content = file.read()
+            # Check if a document with the same name exists
+            result = self.supabase.table("documents") \
+                .select("id") \
+                .eq("chatbot_id", chatbot_id) \
+                .eq("file_name", file_name) \
+                .execute()
             
-            # Upload the file to storage bucket
+            # If the document already exists, replace it (remove it first and then upload the new one)
+            if result.data:
+                logging.info(f"Document {file_name} already exists, removing it first")
+                self.supabase.storage.from_(BUCKET_NAME).remove([bucket_path])
+                self.supabase.table("documents").delete().eq("id", result.data[0]["id"]).execute()
+
+            # Upload the new file to storage bucket
+            file_content = file.read()
             self.supabase.storage.from_(BUCKET_NAME).upload(bucket_path, file_content)
 
             file.seek(0) # Reset file pointer for potential future use
 
-            # Save document metadata to database
             document_data = {
                 "id": document_id,
                 "chatbot_id": chatbot_id,
                 "file_name": file_name,
                 "file_type": file_type,
-                "bucket_path": bucket_path
+                "bucket_path": bucket_path,
             }
+
             self.supabase.table("documents").insert(document_data).execute()
 
             return SuccessResponse(
@@ -187,6 +200,7 @@ class ChatbotServiceImpl(ChatbotService):
                 message=f"Error uploading document: {str(e)}"
             ).model_dump(), 500
         
+
     def list_documents(self, chatbot_id: str) -> tuple:
         try:
             response = (

@@ -55,7 +55,6 @@ class RAGServiceImpl(RAGService):
                 # Save vector store locally first
                 self.vector_store.save_local(temp_dir)
                 
-                # Upload both files to Supabase storage
                 faiss_path = os.path.join(temp_dir, "index.faiss")
                 pkl_path = os.path.join(temp_dir, "index.pkl")
                 
@@ -63,12 +62,24 @@ class RAGServiceImpl(RAGService):
                 storage_faiss_path = f"{user_id}/{chatbot_id}/rag-vector/index.faiss"
                 storage_pkl_path = f"{user_id}/{chatbot_id}/rag-vector/index.pkl"
                 
+                # Check if the files already exist in the bucket
+                result = supabase.table('documents') \
+                    .select('id') \
+                    .eq('chatbot_id', chatbot_id) \
+                    .eq('file_name', 'index.faiss') \
+                    .execute()
+                
+                if result.data:
+                    logging.info(f"Vector store files already exist in the bucket, removing them first")
+                    supabase.storage.from_(BUCKET_NAME).remove([storage_faiss_path, storage_pkl_path])
+                    supabase.table('documents').delete().eq('chatbot_id', chatbot_id).eq('file_name', 'index.faiss').execute()
+                    supabase.table('documents').delete().eq('chatbot_id', chatbot_id).eq('file_name', 'index.pkl').execute()
+
                 # Upload files directly to bucket
                 with open(faiss_path, 'rb') as f:
                     supabase.storage.from_(BUCKET_NAME).upload(storage_faiss_path, f)
                 with open(pkl_path, 'rb') as f:
                     supabase.storage.from_(BUCKET_NAME).upload(storage_pkl_path, f)
-                
                 logging.info(f"Vector store saved to Supabase bucket for chatbot {chatbot_id}")
 
                 # add two rows to the documents table
@@ -169,11 +180,20 @@ class RAGServiceImpl(RAGService):
             elif filename.endswith(('.docx', '.doc')):
                 doc = docx.Document(file_content)
                 content = []
-                for para in doc.paragraphs:
-                    if para.text.strip():  # Skip empty paragraphs
-                        content.append(para.text)
-                
-                # Join all paragraphs with newlines
+                # Extract text from paragraphs if present
+                if doc.paragraphs:
+                    for para in doc.paragraphs:
+                        if para.text.strip():  # Skip empty paragraphs
+                            content.append(para.text)
+                # Check if document contains tables
+                if doc.tables:
+                    for table in doc.tables:
+                        for row in table.rows:
+                            row_text = [cell.text.strip() for cell in row.cells]
+                            if any(row_text):  # Skip empty rows
+                                content.append(" | ".join(row_text))
+
+                # Join extracted content
                 full_content = '\n'.join(content)
                 docs = [Document(
                     page_content=full_content,
