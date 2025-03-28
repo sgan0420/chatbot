@@ -10,6 +10,7 @@ import LoginPage from "./pages/LoginPage";
 import BotsPage from "./pages/BotsPage";
 import BotDetailPage from "./pages/BotDetailPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ChatPage from "./pages/ChatPage";
 
 function App() {
   return (
@@ -70,6 +71,15 @@ function App() {
           element={
             <ProtectedRoute>
               <EmbedPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/bot/:id/chat"
+          element={
+            <ProtectedRoute>
+              <ChatPage />
             </ProtectedRoute>
           }
         />

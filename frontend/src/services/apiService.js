@@ -65,7 +65,32 @@ export const getChatbot = async (id) => {
 };
 
 // TODO: implement createChatbot function
-export const createChatbot = async (botData) => {};
+export const createChatbot = async (botData) => {
+  try{
+    const response = await api.post("/chatbot", botData);
+    return response.data.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const chat = async (data) => {
+  try {
+    const response = await api.post("/chat", data);
+    return response.data.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const getChatHistory = async () => {
+  try {
+    const response = await api.get("/chat/history"); // Change endpoint as needed
+    return response.data.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
 
 // New: implement updateChatbot function to update bot name and description
 export const updateChatbot = async (id, botData) => {
