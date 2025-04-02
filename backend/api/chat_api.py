@@ -38,6 +38,25 @@ def create_session():
             message=str(e)
         )
         return jsonify(error_response.model_dump()), 500
+    
+@chat_api.route("/delete-session/<session_id>", methods=["DELETE"])
+@require_auth
+def delete_session(session_id: str):
+    try:
+        user_token = g.user_token
+        chat_service = ChatServiceImpl(user_token)
+        chatbot_id = request.args.get("chatbot_id")
+        if not chatbot_id:
+            return jsonify(ErrorResponse(message="chatbot_id is required").model_dump()), 400
+        # Call the delete_session method from your chat service.
+        response, status_code = chat_service.delete_session(chatbot_id, session_id)
+        logging.info("Deleting session with ID: %s for chatbot_id: %s", session_id, chatbot_id)
+        return jsonify(response), status_code
+    except Exception as e:
+        error_response = ErrorResponse(
+            message=str(e)
+        )
+        return jsonify(error_response.model_dump()), 500
 
 @chat_api.route("/get-sessions/<chatbot_id>", methods=["GET"])
 @require_auth

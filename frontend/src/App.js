@@ -85,7 +85,7 @@ function App() {
         />
       </Routes>
       <AuthModal />
-      <Footer />
+      {/* <Footer /> */}
     </>
   );
 }

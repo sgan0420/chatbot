@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getChatbotDetail, listDocuments, deleteDocume, getChatbotDetailnt } from "../services/apiService";
+import {
+  listDocuments,
+  deleteDocument,
+  getChatbot,
+} from "../services/apiService";
 import "../styles/BotDetailPage.css";
 
 const BotDetailPage = () => {
@@ -16,15 +20,15 @@ const BotDetailPage = () => {
     const fetchBotAndDocuments = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch bot details
-        const botResponse = await getChatbotDetail(id);
+        const botResponse = await getChatbot(id);
         setBot(botResponse);
-        
+
         // Fetch documents
         const docsResponse = await listDocuments(id);
         setDocuments(docsResponse.documents || []);
-        
+
         setError(null);
       } catch (err) {
         console.error("Error loading bot details:", err);
@@ -43,17 +47,17 @@ const BotDetailPage = () => {
       setConfirmDelete(documentId);
       return;
     }
-    
+
     // Second click confirms deletion
     try {
-      await deleteDocument({ 
-        chatbotId: id, 
-        documentId 
+      await deleteDocument({
+        chatbotId: id,
+        documentId,
       });
-      
+
       // Update documents list by filtering out the deleted document
-      setDocuments(documents.filter(doc => doc.id !== documentId));
-      
+      setDocuments(documents.filter((doc) => doc.id !== documentId));
+
       // Reset confirmation
       setConfirmDelete(null);
     } catch (err) {
@@ -65,19 +69,20 @@ const BotDetailPage = () => {
   // Group documents by file type
   const getDocumentsByType = () => {
     const groupedDocs = {};
-    
-    documents.forEach(doc => {
+
+    documents.forEach((doc) => {
       const fileType = doc.filetype || "Other";
       if (!groupedDocs[fileType]) {
         groupedDocs[fileType] = [];
       }
       groupedDocs[fileType].push(doc);
     });
-    
+
     return groupedDocs;
   };
 
-  if (loading) return <div className="loading-container">Loading bot details...</div>;
+  if (loading)
+    return <div className="loading-container">Loading bot details...</div>;
   if (error) return <div className="error-container">{error}</div>;
   if (!bot) return <div className="error-container">Bot not found.</div>;
 
@@ -94,14 +99,14 @@ const BotDetailPage = () => {
       </div>
 
       <div className="bot-actions">
-        <button 
-          className="primary-button" 
+        <button
+          className="primary-button"
           onClick={() => navigate(`/create-bot?edit=true&id=${id}`)}
         >
           Edit Bot
         </button>
-        <button 
-          className="secondary-button" 
+        <button
+          className="secondary-button"
           onClick={() => navigate(`/embed/${id}`)}
         >
           Embed Code
@@ -111,8 +116,8 @@ const BotDetailPage = () => {
       <div className="bot-documents-section">
         <div className="documents-header">
           <h2>Bot Documents</h2>
-          <button 
-            className="upload-button" 
+          <button
+            className="upload-button"
             onClick={() => navigate(`/create-bot?edit=true&id=${id}#upload`)}
           >
             Upload New Documents
@@ -122,7 +127,7 @@ const BotDetailPage = () => {
         {documents.length === 0 ? (
           <div className="no-documents">
             <p>No documents have been uploaded to this bot yet.</p>
-            <button 
+            <button
               className="primary-button"
               onClick={() => navigate(`/create-bot?edit=true&id=${id}#upload`)}
             >
@@ -135,21 +140,23 @@ const BotDetailPage = () => {
               <div key={fileType} className="document-type-group">
                 <h3>{fileType}</h3>
                 <div className="documents-list">
-                  {docs.map(doc => (
+                  {docs.map((doc) => (
                     <div key={doc.id} className="document-item">
                       <div className="document-info">
                         <div className="document-name">
                           {doc.filename || doc.name || "Untitled Document"}
                         </div>
                         <div className="document-date">
-                          {new Date(doc.created_at || doc.uploaded_at).toLocaleDateString()}
+                          {new Date(
+                            doc.created_at || doc.uploaded_at,
+                          ).toLocaleDateString()}
                         </div>
                       </div>
-                      <button 
-                        className={`delete-button ${confirmDelete === doc.id ? 'confirm' : ''}`}
+                      <button
+                        className={`delete-button ${confirmDelete === doc.id ? "confirm" : ""}`}
                         onClick={() => handleDeleteDocument(doc.id)}
                       >
-                        {confirmDelete === doc.id ? 'Confirm Delete' : 'Delete'}
+                        {confirmDelete === doc.id ? "Confirm Delete" : "Delete"}
                       </button>
                     </div>
                   ))}

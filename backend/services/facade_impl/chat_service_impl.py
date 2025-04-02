@@ -217,6 +217,23 @@ class ChatServiceImpl(ChatService):
             return ErrorResponse(
                 message="Failed to create chat session"
             ).model_dump(), 500
+        
+    def delete_session(self, chatbot_id: str, session_id: str) -> tuple[dict, int]:
+        """Delete a chat session"""
+        try:
+            result = self.supabase.table('chat_sessions') \
+                .delete() \
+                .eq('id', session_id) \
+                .eq('chatbot_id', chatbot_id) \
+                .execute()
+            return SuccessResponse(
+                message="Chat session deleted successfully"
+            ).model_dump(), 200
+        except Exception as e:
+            logging.error(f"Error deleting chat session {session_id}: {str(e)}")
+            return ErrorResponse(
+                message="Failed to delete chat session"
+            ).model_dump(), 500
 
     def get_sessions(self, chatbot_id: str) -> tuple[dict, int]:
         """Get all chat sessions for a user"""

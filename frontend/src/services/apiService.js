@@ -114,6 +114,17 @@ export const createChatSession = async (chatbot_id) => {
   }
 };
 
+export const deleteChatSession = async (session_id, chatbot_id) => {
+  try {
+    const response = await api.delete(`/chat/delete-session/${session_id}`, {
+      params: { chatbot_id },
+    });
+    return response.data.data; // Assumes API returns data.error or success data.
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
 export const getChatSessions = async (chatbot_id) => {
   try {
     const response = await api.get(`/chat/get-sessions/${chatbot_id}`);
