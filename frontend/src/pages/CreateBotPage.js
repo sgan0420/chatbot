@@ -7,6 +7,7 @@ import {
   updateChatbot,
   uploadDocument,
   getChatbot,
+  processDocument,
 } from "../services/apiService";
 import "../styles/CreateBotPage.css";
 
@@ -89,6 +90,7 @@ function CreateBotPage() {
       try {
         // Pass the raw file to uploadDocument (no need to pre-create FormData)
         await uploadDocument(chatbotId, file);
+        await processDocument(chatbotId);
         setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
       } catch (error) {
         console.error("File upload failed:", error);

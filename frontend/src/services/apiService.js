@@ -66,29 +66,11 @@ export const getChatbot = async (id) => {
 
 // TODO: implement createChatbot function
 export const createChatbot = async (botData) => {
-  try{
-    const response = await api.post("/chatbot", botData);
+  try {
+    const response = await api.post("/chatbot/create", botData);
     return response.data.data;
   } catch (error) {
     throw error;
-  }
-};
-
-export const chat = async (data) => {
-  try {
-    const response = await api.post("/chat", data);
-    return response.data.data;
-  } catch (error) {
-    throw error.response?.data || error.message;
-  }
-};
-
-export const getChatHistory = async () => {
-  try {
-    const response = await api.get("/chat/history"); // Change endpoint as needed
-    return response.data.data;
-  } catch (error) {
-    throw error.response?.data || error.message;
   }
 };
 
@@ -99,6 +81,45 @@ export const updateChatbot = async (id, botData) => {
     return response.data.data;
   } catch (error) {
     throw error;
+  }
+};
+
+// ========== CHAT API CALLS ==========
+export const chat = async (data) => {
+  try {
+    const response = await api.post("/chat", data);
+    return response.data.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const getChatHistory = async ({ chatbot_id, session_id }) => {
+  try {
+    const response = await api.get("/chat/get-history", {
+      params: { chatbot_id, session_id },
+    });
+    return response.data.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const createChatSession = async (chatbot_id) => {
+  try {
+    const response = await api.post("/chat/create-session", { chatbot_id });
+    return response.data.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const getChatSessions = async (chatbot_id) => {
+  try {
+    const response = await api.get(`/chat/get-sessions/${chatbot_id}`);
+    return response.data.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
   }
 };
 
@@ -138,6 +159,15 @@ export const deleteDocument = async (payload) => {
   try {
     const response = await api.delete(`/chatbot/delete`, { data: payload });
     return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const processDocument = async (chatbot_id) => {
+  try {
+    const response = await api.post(`/rag/process`, { chatbot_id });
+    return response.data.data;
   } catch (error) {
     throw error;
   }

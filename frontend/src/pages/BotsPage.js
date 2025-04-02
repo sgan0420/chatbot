@@ -51,6 +51,12 @@ const BotsPage = () => {
                 >
                   Edit
                 </button>
+                <button
+                  className="chat-button"
+                  onClick={() => navigate(`/bot/${bot.id}/chat`)}
+                >
+                  Chat
+                </button>
               </div>
             </div>
           ))}

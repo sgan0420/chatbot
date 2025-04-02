@@ -21,7 +21,9 @@ def create_session():
     try:
         user_token = g.user_token
         data = CreateSessionRequest(**request.json)
-        response, status_code = chat_service.create_session(user_token, data)
+        logging.info("Creating session for chatbot_id: %s", data.chatbot_id)
+        chat_service = ChatServiceImpl(user_token)
+        response, status_code = chat_service.create_session(data)
         return jsonify(response), status_code
     except ValidationError as e:
         error_response = ErrorResponse(
@@ -37,7 +39,23 @@ def create_session():
         )
         return jsonify(error_response.model_dump()), 500
 
-@chat_api.route("/chat", methods=["POST"])
+@chat_api.route("/get-sessions/<chatbot_id>", methods=["GET"])
+@require_auth
+def get_sessions(chatbot_id: str):
+    try:
+        logging.info("Getting sessions for chatbot_id: %s", chatbot_id)
+        user_token = g.user_token
+        chat_service = ChatServiceImpl(user_token)
+        response, status_code = chat_service.get_sessions(chatbot_id)
+        return jsonify(response), status_code
+    except Exception as e:
+        error_response = ErrorResponse(
+            success=False,
+            message=str(e)
+        )
+        return jsonify(error_response.model_dump()), 500
+    
+@chat_api.route("", methods=["POST"])
 @require_auth
 def chat():
     try:
@@ -65,7 +83,8 @@ def chat():
 def get_chat_history():
     try:
         user_token = g.user_token
-        data = GetChatHistoryRequest(**request.json)
+        query_params = request.args.to_dict()
+        data = GetChatHistoryRequest(**query_params)
         response, status_code = chat_service.get_chat_history(user_token, data)
         return jsonify(response), status_code
     except Exception as e:
