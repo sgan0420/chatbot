@@ -89,9 +89,12 @@ class ChatServiceImpl(ChatService):
     def _initialize_conversation_chain(self):
         if self.vector_store:
             # Define your custom system template
-            system_template = """You are a helpful AI assistant. Use the following pieces of context to answer the user's questions.
+            system_template = """
+            You are a helpful AI assistant. Use the following pieces of context to answer the user's questions.
             Always try to answer the question based on the context (the documents/vectors you have access to) and the current conversation.
-            If you don't know the answer, just notify the user to be more specific.
+            If the context given is not relevant to the question, and the question is general, just answer it based on your knowledge.
+            If the context given is not relevant to the question, and the question is specific, just notify the user to be more specific.
+            You must reply in English all the time.
                         
             Context: {context}
             
