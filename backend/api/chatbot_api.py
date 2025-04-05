@@ -105,7 +105,12 @@ def delete_document():
         data = DeleteDocumentRequest(**request.json)
         chatbot_service = ChatbotServiceImpl(user_token)
         response, status_code = chatbot_service.delete_document(user_id, data)
-        return jsonify(response), status_code
+        if status_code == 200:
+            # Rebuild the vector store
+            _, status_code = chatbot_service.rebuild_vector_store(user_id, user_token, data.chatbot_id)
+            return jsonify(response), status_code
+        else:
+            return jsonify(response), status_code
     except Exception as e:
         return jsonify(ErrorResponse(
             message=str(e)

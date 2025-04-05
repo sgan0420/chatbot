@@ -37,3 +37,7 @@ class ChatbotService(ABC):
     @abstractmethod
     def delete_document(self, user_id: str, data: DeleteDocumentRequest) -> tuple:
         pass
+
+    @abstractmethod
+    def rebuild_vector_store(self, user_id: str, user_token: str, chatbot_id: str) -> tuple:
+        pass

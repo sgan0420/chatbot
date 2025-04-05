@@ -221,13 +221,110 @@ class ChatbotServiceImpl(ChatbotService):
         try:
             document_id = data.document_id
             chatbot_id = data.chatbot_id
+            
+            # Check if this is the only document for this chatbot
+            document_count_result = self.supabase.table("documents") \
+                .select("*", count="exact") \
+                .eq("chatbot_id", chatbot_id) \
+                .neq("file_type", "faiss") \
+                .neq("file_type", "pkl") \
+                .execute()
+                
+            document_count = document_count_result.count if hasattr(document_count_result, "count") else 0
+            
+            # If this is the only document, don't allow deletion
+            if document_count <= 1:
+                return ErrorResponse(
+                    message="Cannot delete the last document. A chatbot must have at least one document.",
+                    data={"error": "last_document"}
+                ).model_dump(), 400
+            
             file_name = self.supabase.table("documents").select("file_name").eq("id", document_id).single().execute().data["file_name"]
             bucket_path = f"{user_id}/{chatbot_id}/document/{file_name}"
-            # Remove the file from the bucket
+            
+            # Remove the document from the bucket
             self.supabase.storage.from_(BUCKET_NAME).remove([bucket_path])
+            
             # Delete the document from the database
             self.supabase.table("documents").delete().eq("id", document_id).execute()
-            return SuccessResponse(message="Document deleted successfully").model_dump(), 200
-        except Exception as e:
-            raise DatabaseException("Error deleting document", data={"error": str(e)})
+            
+            # We need to rebuild the vector store, so:
+            # 1. Delete the existing vector store files if they exist
+            vector_paths = [
+                f"{user_id}/{chatbot_id}/rag-vector/index.faiss",
+                f"{user_id}/{chatbot_id}/rag-vector/index.pkl"
+            ]
+            
+            # Check if vector files exist before attempting to delete
+            vector_docs = self.supabase.table("documents") \
+                .select("id") \
+                .eq("chatbot_id", chatbot_id) \
+                .in_("file_name", ["index.faiss", "index.pkl"]) \
+                .execute()
+                
+            if vector_docs.data:
+                # Delete vector files from storage
+                try:
+                    self.supabase.storage.from_(BUCKET_NAME).remove(vector_paths)
+                except Exception as storage_error:
+                    logging.warning(f"Error removing vector files from storage: {str(storage_error)}")
+                
+                # Delete vector entries from database
+                self.supabase.table("documents") \
+                    .delete() \
+                    .eq("chatbot_id", chatbot_id) \
+                    .in_("file_name", ["index.faiss", "index.pkl"]) \
+                    .execute()
+            
+            # 2. Mark all remaining documents for this chatbot as unprocessed
+            self.supabase.table("documents") \
+                .update({"is_processed": False}) \
+                .eq("chatbot_id", chatbot_id) \
+                .neq("file_type", "faiss") \
+                .neq("file_type", "pkl") \
+                .execute()
+            
+            return SuccessResponse(
+                message="Document deleted successfully. Vector store needs manual rebuilding.",
+                data={"requires_reprocessing": True}
+            ).model_dump(), 200
         
+        except Exception as e:
+            logging.error(f"Error deleting document: {str(e)}")
+            raise DatabaseException("Error deleting document", data={"error": str(e)})
+            
+    
+    def rebuild_vector_store(self, user_id: str, user_token: str, chatbot_id: str) -> tuple:
+        try:
+            from services.facade_impl.rag_service_impl import RAGServiceImpl
+            from models.request.rag_request import ProcessDocumentsRequest
+
+            # Create a new RAG service instance
+            rag_service = RAGServiceImpl()
+
+            # Create a request to process documents
+            process_request = ProcessDocumentsRequest(chatbot_id=chatbot_id)
+            
+            # Process the documents
+            try:
+                rag_service.process_documents_from_urls(
+                    user_id=user_id, 
+                    user_token=user_token, 
+                    data=process_request
+                )
+                
+            except Exception as process_error:
+                logging.error(f"Error processing documents: {str(process_error)}")
+                return ErrorResponse(
+                    message="Error rebuilding vector store",
+                    data={"error_rebuilding": str(process_error)}
+                ).model_dump(), 500
+            
+            return SuccessResponse(
+                message="Vector store rebuilt successfully",
+                data={"vector_store_updated": True}
+            ).model_dump(), 200
+            
+        except Exception as e:
+            logging.error(f"Error rebuilding vector store: {str(e)}")
+            raise DatabaseException("Error rebuilding vector store", data={"error": str(e)})
