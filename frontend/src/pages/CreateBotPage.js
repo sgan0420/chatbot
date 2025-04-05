@@ -7,6 +7,7 @@ import {
   updateChatbot,
   uploadDocument,
   getChatbot,
+  processDocument,
 } from "../services/apiService";
 import "../styles/CreateBotPage.css";
 
@@ -18,18 +19,29 @@ const uploadOptions = {
       description: "Provide frequently asked questions and answers.",
     },
     {
-      title: "URLs",
-      description: "Answers based on the content of the webpage.",
+      title: "CSV files",
+      description: "Upload CSV files containing texts.",
+    },
+    {
+      title: "Word files",
+      description: "Upload Word documents containing texts.",
+    },
+    {
+      title: "Text files",
+      description: "Upload plain text documents.",
+    },
+    {
+      title: "JSONL",
+      description: "Upload JSONL formatted data.",
     },
   ],
-  advanced: [
-    { title: "CSV files", description: "Upload CSV files containing texts." },
-    { title: "Oracle", description: "Provide structured database queries." },
-    { title: "JSONL", description: "Upload JSONL formatted data." },
-    { title: "RAW files", description: "Upload raw text data." },
-    { title: "XML files", description: "Upload structured XML files." },
-    { title: "Text files", description: "Upload plain text documents." },
-  ],
+  // advanced: [
+  //   { title: "CSV files", description: "Upload CSV files containing texts." },
+  //   { title: "Oracle", description: "Provide structured database queries." },
+  //   { title: "JSONL", description: "Upload JSONL formatted data." },
+  //   { title: "RAW files", description: "Upload raw text data." },
+  //   { title: "XML files", description: "Upload structured XML files." },
+  // ],
 };
 
 function CreateBotPage() {
@@ -89,6 +101,7 @@ function CreateBotPage() {
       try {
         // Pass the raw file to uploadDocument (no need to pre-create FormData)
         await uploadDocument(chatbotId, file);
+        await processDocument(chatbotId);
         setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
       } catch (error) {
         console.error("File upload failed:", error);
@@ -151,20 +164,6 @@ function CreateBotPage() {
               key={index}
               title={option.title}
               description={option.description}
-              onFileSelect={(file) => handleFileSelect(file, option.title)}
-            />
-          ))}
-        </div>
-
-        {/* Advanced Upload Options */}
-        <h3 className="text-lg font-medium mt-8 mb-6">Advanced</h3>
-        <div className="upload-grid">
-          {uploadOptions.advanced.map((option, index) => (
-            <UploadCard
-              key={index}
-              title={option.title}
-              description={option.description}
-              advanced
               onFileSelect={(file) => handleFileSelect(file, option.title)}
             />
           ))}

@@ -13,7 +13,7 @@ from langchain.prompts.chat import ChatPromptTemplate, HumanMessagePromptTemplat
 
 from langchain.vectorstores import FAISS
 from models.request.chat_request import ChatRequest, CreateSessionRequest, GetChatHistoryRequest
-from models.response.chat_response import ChatResponse, CreateSessionResponse
+from models.response.chat_response import ChatResponse, CreateSessionResponse, ChatSessionListResponse
 from models.response.response_wrapper import ErrorResponse, SuccessResponse
 from services.facade.chat_service import ChatService
 from supabase import Client
@@ -27,11 +27,12 @@ logging.basicConfig(
 )
 
 class ChatServiceImpl(ChatService):
-    def __init__(self):
+    def __init__(self, user_token = None):
         load_dotenv()
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("Please set OPENAI_API_KEY in the .env file")
+        self.supabase = get_supabase_client(user_token)
         self.embeddings = OpenAIEmbeddings()
         self.vector_store = None
         self.conversation_chain = None
@@ -45,13 +46,13 @@ class ChatServiceImpl(ChatService):
         # index.pkl: contains the metadata and mapping information, stores the original texts and their metadata, maps vectors back to their original content.
         # .faiss is "search engine" part and .pkl is lookup table.
         # index.faiss:
-        # [0.1, 0.2, 0.3, ...] → Vector ID: 1
-        # [0.4, 0.5, 0.6, ...] → Vector ID: 2
-        # [0.7, 0.8, 0.9, ...] → Vector ID: 3
+        # [0.1, 0.2, 0.3, ...] -> Vector ID: 1
+        # [0.4, 0.5, 0.6, ...] -> Vector ID: 2
+        # [0.7, 0.8, 0.9, ...] -> Vector ID: 3
         # index.pkl:
-        # Vector ID: 1 → {"text": "This is the first document", "source": "doc1.pdf"}
-        # Vector ID: 2 → {"text": "This is the second document", "source": "doc2.pdf"}
-        # Vector ID: 3 → {"text": "This is the third document", "source": "doc3.pdf"}
+        # Vector ID: 1 -> {"text": "This is the first document", "source": "doc1.pdf"}
+        # Vector ID: 2 -> {"text": "This is the second document", "source": "doc2.pdf"}
+        # Vector ID: 3 -> {"text": "This is the third document", "source": "doc3.pdf"}
 
         # Without .faiss, you can't perform similarity searches
         # Without .pkl, you can't retrieve the original content that matches the vectors
@@ -180,22 +181,21 @@ class ChatServiceImpl(ChatService):
             raise  # Re-raise to handle in the calling function
 
 
-    def create_session(self, user_token: str, data: CreateSessionRequest) -> tuple[dict, int]:
+    def create_session(self, data: CreateSessionRequest) -> tuple[dict, int]:
         """Create a new chat session"""
         try:
-            supabase = get_supabase_client(user_token)
             chatbot_id = data.chatbot_id
             session_id = str(uuid.uuid4())
 
             # Check if the chatbot exists and has a vector store
-            result = supabase.table('documents') \
+            result = self.supabase.table('documents') \
                 .select('*') \
                 .eq('chatbot_id', chatbot_id) \
                 .eq('file_type', 'faiss') \
-                .single() \
+                .maybe_single() \
                 .execute()
                 
-            if not result.data:
+            if result == None:
                 return ErrorResponse(
                     message="No vector store found for this chatbot. Please process documents first."
                 ).model_dump(), 400
@@ -206,7 +206,7 @@ class ChatServiceImpl(ChatService):
                 'chatbot_id': chatbot_id,
             }
             
-            supabase.table('chat_sessions').insert(session_data).execute()
+            self.supabase.table('chat_sessions').insert(session_data).execute()
             
             return SuccessResponse(
                 data=CreateSessionResponse(
@@ -220,7 +220,49 @@ class ChatServiceImpl(ChatService):
             return ErrorResponse(
                 message="Failed to create chat session"
             ).model_dump(), 500
+        
+    def delete_session(self, chatbot_id: str, session_id: str) -> tuple[dict, int]:
+        """Delete a chat session"""
+        try:
+            result = self.supabase.table('chat_sessions') \
+                .delete() \
+                .eq('id', session_id) \
+                .eq('chatbot_id', chatbot_id) \
+                .execute()
+            return SuccessResponse(
+                message="Chat session deleted successfully"
+            ).model_dump(), 200
+        except Exception as e:
+            logging.error(f"Error deleting chat session {session_id}: {str(e)}")
+            return ErrorResponse(
+                message="Failed to delete chat session"
+            ).model_dump(), 500
 
+    def get_sessions(self, chatbot_id: str) -> tuple[dict, int]:
+        """Get all chat sessions for a user"""
+        try:
+            response = (
+                self.supabase.table('chat_sessions') 
+                .select('*') 
+                .eq("chatbot_id", chatbot_id)
+                .execute()
+            )
+
+            logging.info(f"Retrieved {len(response.data)} chat sessions")
+            session_list_response = ChatSessionListResponse(
+                sessions=response.data)
+            logging.info("Chat sessions retrieved successfully")
+            
+            return SuccessResponse(
+                data=session_list_response.model_dump(),
+                message="Chat sessions retrieved successfully"
+            ).model_dump(), 200
+        
+        except Exception as e:
+            logging.error(f"Error retrieving chat sessions: {str(e)}")
+            return ErrorResponse(
+                message="Failed to retrieve chat sessions"
+            ).model_dump(), 500
 
     def chat(self, user_id: str, user_token: str, data: ChatRequest) -> tuple[dict, int]:
         """Process user query and return response"""

@@ -21,7 +21,9 @@ def create_session():
     try:
         user_token = g.user_token
         data = CreateSessionRequest(**request.json)
-        response, status_code = chat_service.create_session(user_token, data)
+        logging.info("Creating session for chatbot_id: %s", data.chatbot_id)
+        chat_service = ChatServiceImpl(user_token)
+        response, status_code = chat_service.create_session(data)
         return jsonify(response), status_code
     except ValidationError as e:
         error_response = ErrorResponse(
@@ -36,8 +38,43 @@ def create_session():
             message=str(e)
         )
         return jsonify(error_response.model_dump()), 500
+    
+@chat_api.route("/delete-session/<session_id>", methods=["DELETE"])
+@require_auth
+def delete_session(session_id: str):
+    try:
+        user_token = g.user_token
+        chat_service = ChatServiceImpl(user_token)
+        chatbot_id = request.args.get("chatbot_id")
+        if not chatbot_id:
+            return jsonify(ErrorResponse(message="chatbot_id is required").model_dump()), 400
+        # Call the delete_session method from your chat service.
+        response, status_code = chat_service.delete_session(chatbot_id, session_id)
+        logging.info("Deleting session with ID: %s for chatbot_id: %s", session_id, chatbot_id)
+        return jsonify(response), status_code
+    except Exception as e:
+        error_response = ErrorResponse(
+            message=str(e)
+        )
+        return jsonify(error_response.model_dump()), 500
 
-@chat_api.route("/chat", methods=["POST"])
+@chat_api.route("/get-sessions/<chatbot_id>", methods=["GET"])
+@require_auth
+def get_sessions(chatbot_id: str):
+    try:
+        logging.info("Getting sessions for chatbot_id: %s", chatbot_id)
+        user_token = g.user_token
+        chat_service = ChatServiceImpl(user_token)
+        response, status_code = chat_service.get_sessions(chatbot_id)
+        return jsonify(response), status_code
+    except Exception as e:
+        error_response = ErrorResponse(
+            success=False,
+            message=str(e)
+        )
+        return jsonify(error_response.model_dump()), 500
+    
+@chat_api.route("", methods=["POST"])
 @require_auth
 def chat():
     try:
@@ -65,7 +102,8 @@ def chat():
 def get_chat_history():
     try:
         user_token = g.user_token
-        data = GetChatHistoryRequest(**request.json)
+        query_params = request.args.to_dict()
+        data = GetChatHistoryRequest(**query_params)
         response, status_code = chat_service.get_chat_history(user_token, data)
         return jsonify(response), status_code
     except Exception as e:
