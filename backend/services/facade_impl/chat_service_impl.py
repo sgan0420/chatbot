@@ -96,7 +96,13 @@ class ChatServiceImpl(ChatService):
             If the context given is not relevant to the question, and the question is general, just answer it based on your knowledge.
             If the context given is not relevant to the question, and the question is specific, just notify the user to be more specific.
             You must reply in English all the time.
-                        
+            
+            When answering questions about tables, format the information clearly:
+            1. For simple lookups, present the specific cell values requested
+            2. For summarizing table data, organize information by rows or columns
+            3. When presenting tabular data, keep the original structure where appropriate
+            4. If the table has column headers, use them in your explanations
+            
             Context: {context}
             
             Current conversation:
@@ -113,13 +119,23 @@ class ChatServiceImpl(ChatService):
                 human_message_prompt,
             ])
             
+            # Configure advanced retrieval parameters to improve table retrieval
+            retriever = self.vector_store.as_retriever(
+                search_type="mmr",  # Use Maximum Marginal Relevance for greater result diversity
+                search_kwargs={
+                    "k": 5,  # Retrieve more documents to increase chance of getting relevant tables
+                    "fetch_k": 10,  # Consider more candidates before selecting final results
+                    "lambda_mult": 0.7  # Balance between relevance and diversity (0.7 favors relevance)
+                }
+            )
+            
             self.conversation_chain = ConversationalRetrievalChain.from_llm(
                 llm=ChatOpenAI(temperature=0.7, model_name="gpt-4o-mini"),
-                retriever=self.vector_store.as_retriever(search_kwargs={"k": 3}),
+                retriever=retriever,
                 memory=self.memory,
                 combine_docs_chain_kwargs={"prompt": chat_prompt},
                 verbose=True
-        )
+            )
             logging.info("Conversation chain initialization completed")
         else:
             logging.error("Cannot initialize chain without vector store")
