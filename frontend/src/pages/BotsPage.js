@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getUserChatbots, deleteChatbot } from "../services/apiService";
-import "../styles/BotsPage.css";
 
 const BotsPage = () => {
   const [bots, setBots] = useState([]);
@@ -28,7 +27,7 @@ const BotsPage = () => {
       <div className="flex justify-between items-center mb-8">
         <h2 className="text-3xl font-bold text-gray-800">Your Bots</h2>
         <button
-          className="bg-gradient-to-r from-gray-800 to-black text-white font-medium py-2 px-5 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2"
+          className="bg-gradient-to-r from-[#7856ff] to-[#6a48e0] text-white font-medium py-2 px-5 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2 hover:translate-y-[-2px]"
           onClick={() => navigate("/create-bot")}
         >
           <svg
@@ -72,7 +71,7 @@ const BotsPage = () => {
           <p className="text-xl mb-2">No bots found</p>
           <p className="mb-8">Create your first bot to get started</p>
           <button
-            className="bg-gradient-to-r from-gray-800 to-black text-white font-medium py-2 px-5 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2 mx-auto"
+            className="bg-gradient-to-r from-[#7856ff] to-[#6a48e0] text-white font-medium py-2 px-5 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2 mx-auto hover:translate-y-[-2px]"
             onClick={() => navigate("/create-bot")}
           >
             <svg

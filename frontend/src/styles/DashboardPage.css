@@ -47,7 +47,7 @@ h1 {
   font-size: 28px;
   font-weight: 600;
   margin: 10px 0 0;
-  color: #2c7be5;
+  color: #7856ff;
 }
 
 .dashboard-buttons {
@@ -77,12 +77,12 @@ h1 {
 }
 
 .new-bot {
-  background-color: #2c7be5;
+  background-color: #7856ff;
   color: white;
 }
 
 .new-bot:hover {
-  background-color: #1a68d1;
+  background-color: #7856ff;
 }
 
 .recent-activity {
@@ -183,4 +183,47 @@ h1 {
   .dashboard-buttons {
     flex-direction: column;
   }
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.action-button {
+  background: linear-gradient(135deg, #7856ff, #6a48e0);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 10px rgba(120, 86, 255, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.action-button:hover {
+  background: linear-gradient(135deg, #6a48e0, #5a3cd0);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(120, 86, 255, 0.35);
+}
+
+.action-button:active {
+  transform: translateY(0);
+}
+
+.action-button.secondary {
+  background: none;
+  color: #7856ff;
+  border: 1.5px solid #7856ff;
+  box-shadow: 0 2px 5px rgba(120, 86, 255, 0.15);
+}
+
+.action-button.secondary:hover {
+  background-color: rgba(120, 86, 255, 0.1);
+  transform: translateY(-2px);
 }

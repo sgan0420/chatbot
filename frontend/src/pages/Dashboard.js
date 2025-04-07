@@ -51,7 +51,11 @@ const DashboardPage = () => {
         <button className="view-bots" onClick={() => navigate("/bots")}>
           View Bots
         </button>
-        <button className="new-bot" onClick={() => navigate("/create-bot")}>
+        <button
+          className="new-bot"
+          style={{ background: "linear-gradient(to right, #6a11cb, #2575fc)" }}
+          onClick={() => navigate("/create-bot")}
+        >
           New Bot
         </button>
       </div>
