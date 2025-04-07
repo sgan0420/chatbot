@@ -52,6 +52,16 @@
   background-position: center;
 }
 
+.ai-chatbot-graphic {
+  width: 100%;
+  max-width: 500px;
+  height: 400px;
+  background-image: url("https://via.placeholder.com/500x400?text=Chatbot+Builder");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
 .hero-buttons {
   display: flex;
   gap: 1rem;
@@ -210,6 +220,59 @@
   line-height: 1.6;
 }
 
+/* Upload Showcase Section */
+.upload-showcase {
+  padding: 5rem 8%;
+  text-align: center;
+  background-color: #ffffff;
+}
+
+.showcase-description {
+  font-size: 1.2rem;
+  color: #546e7a;
+  max-width: 800px;
+  margin: 0 auto 3rem;
+}
+
+.file-types-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.file-type-card {
+  background-color: white;
+  padding: 2rem 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  border: 1px solid #f0f0f0;
+}
+
+.file-type-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 30px rgba(120, 86, 255, 0.1);
+  border-color: rgba(120, 86, 255, 0.2);
+}
+
+.file-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.file-type-card h3 {
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+  color: #323b4c;
+}
+
+.file-type-card p {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
 /* Testimonials */
 .testimonials {
   padding: 5rem 8%;
@@ -257,6 +320,96 @@
   color: #7856ff;
 }
 
+/* Embed Showcase Section */
+.embed-showcase {
+  padding: 5rem 8%;
+  background: linear-gradient(135deg, #f5f7fa, #e4e9f2);
+}
+
+.embed-showcase h2 {
+  text-align: center;
+  font-size: 2.5rem;
+  margin-bottom: 3rem;
+  color: #323b4c;
+}
+
+.embed-content {
+  display: flex;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  gap: 4rem;
+}
+
+.embed-image {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.website-mockup {
+  width: 100%;
+  max-width: 500px;
+  height: 350px;
+  background-image: url("https://via.placeholder.com/500x350?text=Website+With+Chatbot");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.embed-description {
+  flex: 1;
+  text-align: left;
+}
+
+.embed-description h3 {
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+  color: #323b4c;
+}
+
+.embed-description p {
+  font-size: 1.1rem;
+  color: #546e7a;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.code-snippet {
+  background-color: #2d2d2d;
+  color: #fff;
+  padding: 1.25rem;
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+}
+
+.code-snippet code {
+  font-family: "Courier New", monospace;
+  font-size: 0.9rem;
+}
+
+.embed-benefits {
+  list-style: none;
+  padding: 0;
+}
+
+.embed-benefits li {
+  padding: 0.5rem 0;
+  color: #546e7a;
+  display: flex;
+  align-items: center;
+}
+
+.embed-benefits li:before {
+  content: "✓";
+  color: #7856ff;
+  font-weight: bold;
+  margin-right: 10px;
+}
+
 /* CTA Section */
 .cta-section {
   padding: 5rem 8%;
@@ -299,6 +452,15 @@
   .hero-content h1 {
     font-size: 3rem;
   }
+
+  .embed-content {
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .embed-description {
+    text-align: center;
+  }
 }
 
 @media (max-width: 768px) {
@@ -328,6 +490,10 @@
   .cta-section {
     padding: 4rem 5%;
   }
+
+  .file-types-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
 }
 
 @media (max-width: 480px) {
@@ -346,5 +512,17 @@
   .primary-button,
   .secondary-button {
     width: 100%;
+  }
+
+  .file-type-card {
+    padding: 1.5rem 1rem;
+  }
+
+  .code-snippet {
+    padding: 1rem;
+  }
+
+  .code-snippet code {
+    font-size: 0.8rem;
   }
 }
