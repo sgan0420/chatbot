@@ -57,3 +57,22 @@ class AuthServiceImpl(AuthService):
             SuccessResponse[LoginResponse](data=login_response).model_dump(),
             200,
         )
+    
+    # def refresh_token(self, data: dict) -> tuple:
+    #     refresh_token = data.get("refresh_token")
+    #     access_token = data.get("access_token")
+
+    #     try:
+    #         response = self.supabase.auth.refresh_access_token(refresh_token)
+    #     except AuthApiError as e:
+    #         raise AuthException(str(e), 400)
+
+    #     if response.user is None or response.session is None:
+    #         raise AuthException("Refresh token failed", 400)
+
+    #     login_response = LoginResponse(user=response.user, session=response.session)
+
+    #     return (
+    #         SuccessResponse[LoginResponse](data=login_response).model_dump(),
+    #         200,
+    #     )

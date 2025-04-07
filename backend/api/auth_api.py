@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from models.request.auth_request import LoginRequest, SignupRequest
+from models.request.auth_request import LoginRequest, SignupRequest, RefreshTokenRequest
 from models.response.response_wrapper import ErrorResponse
 from pydantic import ValidationError
 from pydantic_core import ErrorDetails
@@ -34,3 +34,15 @@ def login():
             success=False, message="Validation failed", data=e.errors()
         )
         return jsonify(error_response.model_dump()), 422
+    
+# @auth_api.route("/refresh", methods=["POST"])
+# def refresh_token():
+#     try:
+#         validated_data = RefreshTokenRequest(**request.json)
+#         response, status_code = auth_service.refresh_token(validated_data.model_dump())
+#         return jsonify(response), status_code
+#     except ValidationError as e:    
+#         error_response = ErrorResponse[list[ErrorDetails]](
+#             success=False, message="Validation failed", data=e.errors()
+#         )
+#         return jsonify(error_response.model_dump()), 422

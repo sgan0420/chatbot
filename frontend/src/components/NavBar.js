@@ -10,25 +10,46 @@ function NavBar() {
   const { user, logout, openSignIn, openRegister } = useAuth();
   const navigate = useNavigate(); // Initialize navigation
 
+  // Handle navigation and close menu
+  const handleNavigation = (path) => {
+    navigate(path);
+    setMenuOpen(false);
+  };
+
   return (
     <>
       <header className="navbar">
         <div className="navbar-container">
           {/* Logo */}
           <div className="logo">
-            <Link to="/dashboard">
+            <Link to="/">
               <img src={logo} alt="Logo" />
             </Link>
           </div>
 
           {/* Desktop Menu */}
           <nav className="nav-links">
-            <a onClick={() => navigate("/dashboard")}>Dashboard</a>
-            <a onClick={() => navigate("/bots")}>Bots</a>
-            <a href="#">Developers</a>
-            <a href="#">Resources</a>
-            <a href="#">FAQ</a>
-            <a href="#">Contact</a>
+            <a className="nav-link" onClick={() => navigate("/")}>
+              Home
+            </a>
+            <a className="nav-link" onClick={() => navigate("/dashboard")}>
+              Dashboard
+            </a>
+            <a className="nav-link" onClick={() => navigate("/bots")}>
+              Bots
+            </a>
+            <a className="nav-link" onClick={() => navigate("/developers")}>
+              Developers
+            </a>
+            <a className="nav-link" onClick={() => navigate("/resources")}>
+              Resources
+            </a>
+            <a className="nav-link" onClick={() => navigate("/faq")}>
+              FAQ
+            </a>
+            <a className="nav-link" onClick={() => navigate("/contact")}>
+              Contact
+            </a>
           </nav>
 
           {/* Auth Buttons */}
@@ -79,12 +100,48 @@ function NavBar() {
         {/* Mobile Menu */}
         {menuOpen && (
           <nav className="mobile-menu">
-            <a onClick={() => navigate("/dashboard")}>Dashboard</a>
-            <a onClick={() => navigate("/bots")}>Bots</a>
-            <a href="#">Developers</a>
-            <a href="#">Resources</a>
-            <a href="#">FAQ</a>
-            <a href="#">Contact</a>
+            <a
+              className="mobile-nav-link"
+              onClick={() => handleNavigation("/")}
+            >
+              Home
+            </a>
+            <a
+              className="mobile-nav-link"
+              onClick={() => handleNavigation("/dashboard")}
+            >
+              Dashboard
+            </a>
+            <a
+              className="mobile-nav-link"
+              onClick={() => handleNavigation("/bots")}
+            >
+              Bots
+            </a>
+            <a
+              className="mobile-nav-link"
+              onClick={() => handleNavigation("/developers")}
+            >
+              Developers
+            </a>
+            <a
+              className="mobile-nav-link"
+              onClick={() => handleNavigation("/resources")}
+            >
+              Resources
+            </a>
+            <a
+              className="mobile-nav-link"
+              onClick={() => handleNavigation("/faq")}
+            >
+              FAQ
+            </a>
+            <a
+              className="mobile-nav-link"
+              onClick={() => handleNavigation("/contact")}
+            >
+              Contact
+            </a>
             {user ? (
               <>
                 <span className="user-email">
@@ -96,10 +153,22 @@ function NavBar() {
               </>
             ) : (
               <>
-                <button className="sign-in" onClick={() => navigate("/login")}>
+                <button
+                  className="sign-in"
+                  onClick={() => {
+                    handleNavigation("/login");
+                    openSignIn();
+                  }}
+                >
                   Sign in
                 </button>
-                <button className="register" onClick={() => navigate("/login")}>
+                <button
+                  className="register"
+                  onClick={() => {
+                    handleNavigation("/login");
+                    openRegister();
+                  }}
+                >
                   Register
                 </button>
               </>

@@ -1,8 +1,11 @@
 /* Main navbar styling */
 .navbar {
-  background-color: #f3f4f6;
-  padding: 8px;
-  border-bottom: 1px solid #d1d5db;
+  background-color: #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
 
 /* Flex container for navbar */
@@ -10,76 +13,119 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 1rem 2rem;
   max-width: 1200px;
   margin: 0 auto;
 }
 
 /* Logo styling */
 .logo img {
-  width: 32px;
-  height: 32px;
+  height: 40px;
+  width: auto;
 }
 
 /* Desktop navigation links */
 .nav-links {
   display: flex;
-  gap: 24px;
+  gap: 1.5rem;
 }
 
-.nav-links a {
+.nav-link,
+.mobile-nav-link {
+  color: #333;
   text-decoration: none;
-  color: #374151;
-  transition: color 0.3s;
+  font-weight: 500;
+  transition: color 0.2s ease;
+  cursor: pointer;
 }
 
-.nav-links a:hover {
-  text-decoration: underline;
-  color: #1f2937;
+.nav-link:hover,
+.mobile-nav-link:hover {
+  color: #7856ff;
+  text-decoration: none;
 }
 
 /* Auth buttons */
 .auth-buttons {
   display: flex;
+  gap: 1rem;
   align-items: center;
-  justify-content: center; /* optional if you also want horizontal centering */
-  gap: 8px; /* space between elements */
 }
 
 .sign-in {
-  padding: 8px 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
   background: none;
+  border: 1px solid #7856ff;
+  color: #7856ff;
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.95rem;
+  box-shadow: 0 1px 3px rgba(120, 86, 255, 0.1);
+}
+
+.sign-in:hover {
+  background-color: rgba(120, 86, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.sign-in:active {
+  transform: translateY(0);
 }
 
 .register {
-  padding: 8px 16px;
-  background-color: black;
+  background: linear-gradient(135deg, #7856ff, #6a48e0);
+  border: none;
   color: white;
-  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 8px rgba(120, 86, 255, 0.2);
 }
 
+.register:hover {
+  background: linear-gradient(135deg, #6a48e0, #5a3cd0);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(120, 86, 255, 0.25);
+}
+
+.register:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 8px rgba(120, 86, 255, 0.2);
+}
+
+.user-display-name,
 .user-email {
-  display: block; /* Make it a block element */
-  text-align: center; /* Center its text */
-  margin: 0 auto; /* Center it within its container */
   font-weight: 500;
   color: #333;
-  font-size: 1rem;
+  margin-right: 1rem;
 }
 
 .logout-button {
-  padding: 8px 16px;
-  background-color: black;
+  background-color: #f44336;
+  border: none;
   color: white;
-  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 5px rgba(244, 67, 54, 0.2);
 }
 
 .logout-button:hover {
-  background-color: #374151;
+  background-color: #d32f2f;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(244, 67, 54, 0.25);
+}
+
+.logout-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 5px rgba(244, 67, 54, 0.2);
 }
 
 /* Mobile menu button */
@@ -87,16 +133,14 @@
   display: none;
   background: none;
   border: none;
+  color: #333;
   cursor: pointer;
+  padding: 0.5rem;
 }
 
 /* Mobile menu styles */
 .mobile-menu {
   display: none;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  margin-top: 16px;
 }
 
 /* Responsive Design */
@@ -112,5 +156,32 @@
 
   .mobile-menu {
     display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    background-color: #fff;
+    border-top: 1px solid #eee;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .mobile-nav-link {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #eee;
+    font-size: 1.1rem;
+  }
+
+  .mobile-menu .sign-in,
+  .mobile-menu .register,
+  .mobile-menu .logout-button {
+    margin-top: 1rem;
+    width: 100%;
+    text-align: center;
+    padding: 0.75rem;
+  }
+
+  .mobile-menu .user-email {
+    padding: 1rem 0;
+    text-align: center;
+    font-weight: 500;
+    margin: 0;
   }
 }
