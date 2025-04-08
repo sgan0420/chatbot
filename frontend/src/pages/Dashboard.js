@@ -51,7 +51,11 @@ const DashboardPage = () => {
         <button className="view-bots" onClick={() => navigate("/bots")}>
           View Bots
         </button>
-        <button className="new-bot" onClick={() => navigate("/create-bot")}>
+        <button
+          className="new-bot"
+          style={{ background: "linear-gradient(to right, #6a11cb, #2575fc)" }}
+          onClick={() => navigate("/create-bot")}
+        >
           New Bot
         </button>
       </div>
@@ -59,11 +63,44 @@ const DashboardPage = () => {
       {/* Recent Activity */}
       <div className="recent-activity">
         <h2>Recent Bot Activity</h2>
-        <ul>
-          <li>ChatBot Alpha handled 50 queries today</li>
-          <li>ChatBot Beta had 10 new users</li>
-          <li>ChatBot Gamma received 200 messages this week</li>
-        </ul>
+        <div className="activity-cards">
+          <div className="activity-card">
+            <div className="activity-icon">
+              <span role="img" aria-label="messages">
+                💬
+              </span>
+            </div>
+            <div className="activity-content">
+              <h4>ChatBot Alpha</h4>
+              <p>Handled 50 queries today</p>
+              <span className="activity-time">Today</span>
+            </div>
+          </div>
+          <div className="activity-card">
+            <div className="activity-icon">
+              <span role="img" aria-label="users">
+                👥
+              </span>
+            </div>
+            <div className="activity-content">
+              <h4>ChatBot Beta</h4>
+              <p>Gained 10 new users</p>
+              <span className="activity-time">Yesterday</span>
+            </div>
+          </div>
+          <div className="activity-card">
+            <div className="activity-icon">
+              <span role="img" aria-label="stats">
+                📊
+              </span>
+            </div>
+            <div className="activity-content">
+              <h4>ChatBot Gamma</h4>
+              <p>Received 200 messages</p>
+              <span className="activity-time">This week</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

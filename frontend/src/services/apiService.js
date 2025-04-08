@@ -84,6 +84,16 @@ export const updateChatbot = async (id, botData) => {
   }
 };
 
+// Delete a chatbot
+export const deleteChatbot = async (id) => {
+  try {
+    const response = await api.delete(`/chatbot/${id}`);
+    return response.data.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
 // ========== CHAT API CALLS ==========
 export const chat = async (data) => {
   try {
@@ -159,7 +169,7 @@ export const uploadDocument = async (chatbotId, file) => {
 export const listDocuments = async (chatbotId) => {
   try {
     const response = await api.get(`/chatbot/list/${chatbotId}`);
-    return response.data;
+    return response.data.data;
   } catch (error) {
     throw error;
   }
@@ -169,7 +179,7 @@ export const listDocuments = async (chatbotId) => {
 export const deleteDocument = async (payload) => {
   try {
     const response = await api.delete(`/chatbot/delete`, { data: payload });
-    return response.data;
+    return response.data.data;
   } catch (error) {
     throw error;
   }

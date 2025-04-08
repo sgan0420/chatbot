@@ -7,10 +7,13 @@ import AuthModal from "./components/AuthModal";
 import Dashboard from "./pages/Dashboard";
 import EmbedPage from "./pages/EmbedPage";
 import LoginPage from "./pages/LoginPage";
+import HomePage from "./pages/HomePage";
 import BotsPage from "./pages/BotsPage";
 import BotDetailPage from "./pages/BotDetailPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ChatPage from "./pages/ChatPage";
+import FAQ from "./components/FAQ";
+import Contact from "./components/Contact"; // Import Contact component
 
 function App() {
   return (
@@ -19,17 +22,8 @@ function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
-
+        <Route path="/" element={<HomePage />} />
         {/* Protected routes */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-
         <Route
           path="/dashboard"
           element={
@@ -38,7 +32,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/create-bot"
           element={
@@ -47,7 +40,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/bots"
           element={
@@ -56,7 +48,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/bot/:id"
           element={
@@ -65,7 +56,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/embed/:botId"
           element={
@@ -74,7 +64,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/bot/:id/chat"
           element={
@@ -83,6 +72,9 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/faq" element={<FAQ />} />
+        <Route path="/contact" element={<Contact />} />{" "}
+        {/* Add Contact route */}
       </Routes>
       <AuthModal />
       {/* <Footer /> */}

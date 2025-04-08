@@ -24,13 +24,6 @@
   flex-grow: 1; /* Helps with alignment */
 }
 
-.upload-pricing {
-  color: #3b82f6; /* Blue */
-  font-size: 14px;
-  cursor: pointer;
-  margin-bottom: 12px;
-}
-
 .upload-button-wrapper {
   width: 100%;
 }
@@ -39,7 +32,7 @@
   display: none;
 }
 
-.upload-button {
+.upload-card .upload-button {
   width: 100%;
   background-color: black;
   color: white;
@@ -56,6 +49,6 @@
 
 .upload-file {
   font-size: 14px;
-  color: #16a34a; /* Green */
+  color: black; /* Green */
   margin-top: 8px;
 }

@@ -35,8 +35,6 @@ function UploadCard({ title, description, advanced = false, onFileSelect }) {
       <h4 className="upload-title">{title}</h4>
       <p className="upload-description">{description}</p>
 
-      {advanced && <p className="upload-pricing">View pricing</p>}
-
       {/* File Selection Button */}
       <button className="upload-button" onClick={handleUploadClick}>
         Select File
