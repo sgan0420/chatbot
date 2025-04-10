@@ -13,7 +13,6 @@ logging.basicConfig(
 )
 
 chat_api = Blueprint("chat_api", __name__)
-chat_service = ChatServiceImpl()
 
 @chat_api.route("/create-session", methods=["POST"])
 @require_auth
@@ -81,6 +80,7 @@ def chat():
         user_id = g.user_id
         user_token = g.user_token
         data = ChatRequest(**request.json)
+        chat_service = ChatServiceImpl(user_token)
         response, status_code = chat_service.chat(user_id, user_token, data)
         return jsonify(response), status_code
     except ValidationError as e: # this is for the request body validation
@@ -104,6 +104,7 @@ def get_chat_history():
         user_token = g.user_token
         query_params = request.args.to_dict()
         data = GetChatHistoryRequest(**query_params)
+        chat_service = ChatServiceImpl(user_token)
         response, status_code = chat_service.get_chat_history(user_token, data)
         return jsonify(response), status_code
     except Exception as e:

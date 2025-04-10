@@ -36,7 +36,7 @@ class ChatServiceImpl(ChatService):
         self.embeddings = OpenAIEmbeddings()
         self.vector_store = None
         self.conversation_chain = None
-        self.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+        self.memory = None
 
 
     def _load_vector_store_from_supabase(self, user_id: str, chatbot_id: str, supabase: Client):
@@ -80,6 +80,7 @@ class ChatServiceImpl(ChatService):
                 
                 # Load vector store from temporary files
                 self.vector_store = FAISS.load_local(temp_dir, self.embeddings)
+                logging.info("Vector store loaded successfully")
                 self._initialize_conversation_chain()
                 
         except Exception as e:
@@ -121,11 +122,9 @@ class ChatServiceImpl(ChatService):
             
             # Configure advanced retrieval parameters to improve table retrieval
             retriever = self.vector_store.as_retriever(
-                search_type="mmr",  # Use Maximum Marginal Relevance for greater result diversity
+                search_type="mmr",
                 search_kwargs={
-                    "k": 5,  # Retrieve more documents to increase chance of getting relevant tables
-                    "fetch_k": 10,  # Consider more candidates before selecting final results
-                    "lambda_mult": 0.7  # Balance between relevance and diversity (0.7 favors relevance)
+                    "k": 3,
                 }
             )
             
@@ -195,7 +194,6 @@ class ChatServiceImpl(ChatService):
         except Exception as e:
             logging.error(f"Error saving message to chat session {session_id}: {str(e)}")
             raise  # Re-raise to handle in the calling function
-
 
     def create_session(self, data: CreateSessionRequest) -> tuple[dict, int]:
         """Create a new chat session"""
@@ -288,23 +286,35 @@ class ChatServiceImpl(ChatService):
         query = data.query
         # Check if vector store exists in Supabase
         try:
+            # Create fresh memory instance for each chat
+            self.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+            # Log the chatbot we're trying to use
+            logging.info(f"Attempting to use chatbot: {chatbot_id}")
             result = supabase.table('documents') \
                 .select('*') \
                 .eq('chatbot_id', chatbot_id) \
                 .eq('file_type', 'faiss') \
-                .single() \
                 .execute()
+            
+            # Log what we found
+            if result.data:
+                logging.info(f"Found vector store for chatbot {chatbot_id}:")
+                logging.info(f"Document details: {result.data[0]}")
+                logging.info(f"Bucket path: {result.data[0]['bucket_path']}")
+
             # If no result, skip loading
             if not result.data:
                 logging.info("No existing vector store found for this chatbot")
                 return ErrorResponse(
                     message="No vector store found for this chatbot"
                 ).model_dump(), 400
-            else:
-                self._load_vector_store_from_supabase(user_id, chatbot_id, supabase)
-                logging.info("Successfully loaded existing vector store from Supabase")
-                self._load_conversation_memory(chatbot_id, session_id, supabase)
-                logging.info("Successfully loaded existing conversation history from Supabase")
+            
+            # Before loading the vector store
+            logging.info(f"Loading vector store from storage for chatbot {chatbot_id}")
+            self._load_vector_store_from_supabase(user_id, chatbot_id, supabase)
+            logging.info(f"Successfully loaded vector store for chatbot {chatbot_id}")
+            self._load_conversation_memory(chatbot_id, session_id, supabase)
+            logging.info(f"Loaded conversation memory for session {session_id}")
         except Exception as e:
             logging.error(f"Failed to load existing vector store or conversation history: {str(e)}")
 

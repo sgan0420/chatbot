@@ -13,7 +13,6 @@ logging.basicConfig(
 )
 
 rag_api = Blueprint("rag_api", __name__)
-rag_service = RAGServiceImpl()
 
 @rag_api.route("/process", methods=["POST"])
 @require_auth
@@ -22,6 +21,7 @@ def process_documents():
         user_id = g.user_id
         user_token = g.user_token
         data = ProcessDocumentsRequest(**request.json)
+        rag_service = RAGServiceImpl()
         response, status_code = rag_service.process_documents_from_urls(user_id, user_token, data)
         return jsonify(response), status_code
     except ValidationError as e: # this is for the request body validation
