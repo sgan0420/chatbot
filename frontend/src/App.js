@@ -12,17 +12,23 @@ import BotsPage from "./pages/BotsPage";
 import BotDetailPage from "./pages/BotDetailPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ChatPage from "./pages/ChatPage";
+import EmbedChatPage from "./pages/EmbedChatPage";
 import FAQ from "./components/FAQ";
 import Contact from "./components/Contact"; // Import Contact component
+import { useLocation } from "react-router-dom";
 
 function App() {
+  const location = useLocation();
+  const isEmbedPage = location.pathname.startsWith("/embed-chat");
+
   return (
     <>
-      <NavBar />
+      {!isEmbedPage && <NavBar />}
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<HomePage />} />
+        <Route path="/embed-chat/:botId" element={<EmbedChatPage />} />
         {/* Protected routes */}
         <Route
           path="/dashboard"
