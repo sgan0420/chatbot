@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 
 const EmbedPage = () => {
@@ -6,6 +6,21 @@ const EmbedPage = () => {
   const [copied, setCopied] = useState(false);
   const [showWidget, setShowWidget] = useState(false);
   const [widgetOpen, setWidgetOpen] = useState(false);
+
+  // listen for close-chat-widget event from iframe
+  useEffect(() => {
+    const handleMessage = (event) => {
+      if (event.data === "close-chat-widget") {
+        setWidgetOpen(false);
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+    };
+  }, []);
 
   const embedCode = `<iframe 
   src="http://localhost:3000/embed-chat/${botId}" 
