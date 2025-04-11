@@ -352,6 +352,7 @@ class ChatServiceImpl(ChatService):
                 .select('message') \
                 .eq('chatbot_id', chatbot_id) \
                 .eq('session_id', session_id) \
+                .order('created_at') \
                 .execute()
 
             if not result.data:
