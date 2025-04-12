@@ -1,6 +1,6 @@
 import logging
 from flask import Blueprint, jsonify, request, g
-from models.request.chat_request import ChatRequest, GetChatHistoryRequest, CreateSessionRequest
+from models.request.chat_request import ChatRequest, GetChatHistoryRequest, CreateSessionRequest, PublicChatRequest
 from models.response.response_wrapper import ErrorResponse
 from pydantic import ValidationError
 from services.facade_impl.chat_service_impl import ChatServiceImpl
@@ -113,3 +113,54 @@ def get_chat_history():
             message=str(e)
         )
         return jsonify(error_response.model_dump()), 500 
+
+@chat_api.route("/public-chat", methods=["POST"])
+def public_chat():
+    try:
+        data = PublicChatRequest(**request.json)  # Validate request
+        
+        chatbot_id = data.chatbot_id
+        session_id = data.session_id
+        query = data.query
+
+        logging.error(f"[PUBLIC CHAT] chatbot_id={chatbot_id}, session_id={session_id}, query={query}")
+
+        # Init chat service without user token
+        chat_service = ChatServiceImpl()
+        
+        # Query user_id of the chatbot owner
+        chatbot_result = chat_service.supabase.table('chatbots').select('user_id').eq('id', chatbot_id).maybe_single().execute()
+        if not chatbot_result.data:
+            return jsonify(ErrorResponse(message="Invalid chatbot_id").model_dump()), 404
+
+        owner_user_id = chatbot_result.data['user_id']
+
+        # Auto create session if not provided
+        if not session_id:
+            create_data = CreateSessionRequest(chatbot_id=chatbot_id)
+            create_response, _ = chat_service.create_session(create_data)
+            session_id = create_response["session_id"]
+
+        # Perform chat
+        response, status_code = chat_service.chat(owner_user_id, None, ChatRequest(
+            chatbot_id=chatbot_id,
+            session_id=session_id,
+            query=query
+        ))
+
+        return jsonify(response), status_code
+
+    except ValidationError as e:
+        error_response = ErrorResponse(
+            success=False,
+            message="Validation failed",
+            data=e.errors()
+        )
+        return jsonify(error_response.model_dump()), 422
+    except Exception as e:
+        logging.error(f"[PUBLIC CHAT ERROR] {str(e)}")
+        error_response = ErrorResponse(
+            success=False,
+            message=str(e)
+        )
+        return jsonify(error_response.model_dump()), 500

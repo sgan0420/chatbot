@@ -7,7 +7,6 @@ const EmbedPage = () => {
   const [showWidget, setShowWidget] = useState(false);
   const [widgetOpen, setWidgetOpen] = useState(false);
 
-  // listen for close-chat-widget event from iframe
   useEffect(() => {
     const handleMessage = (event) => {
       if (event.data === "close-chat-widget") {
@@ -53,7 +52,10 @@ const EmbedPage = () => {
       <hr className="my-6" />
 
       <button
-        onClick={() => setShowWidget(!showWidget)}
+        onClick={() => {
+          setShowWidget(!showWidget);
+          if (!showWidget) setWidgetOpen(false); // Reset widget state when closing preview
+        }}
         className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
       >
         {showWidget ? "Hide Widget Preview" : "Try Widget Preview"}
@@ -66,18 +68,19 @@ const EmbedPage = () => {
             onClick={() => setWidgetOpen(!widgetOpen)}
             className="fixed bottom-4 right-4 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 z-50"
           >
-            {widgetOpen ? "×" : "💬"}
+            {widgetOpen ? "x" : "💬"}
           </button>
 
-          {/* Floating Chat iframe */}
-          {widgetOpen && (
-            <iframe
-              src={`http://localhost:3000/embed-chat/${botId}`}
-              className="fixed bottom-20 right-4 w-96 h-[600px] shadow-lg border border-gray-300 rounded-2xl overflow-hidden z-40"
-              style={{ border: "none" }}
-              title="Chatbot"
-            />
-          )}
+          {/* Floating Chat iframe (always created but toggled) */}
+          <iframe
+            src={`http://localhost:3000/embed-chat/${botId}`}
+            className="fixed bottom-20 right-4 w-96 h-[600px] shadow-lg border border-gray-300 rounded-2xl overflow-hidden z-40"
+            style={{
+              border: "none",
+              display: widgetOpen ? "block" : "none",
+            }}
+            title="Chatbot"
+          />
         </>
       )}
     </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  chat,
+  publicChat,
   getChatHistory,
   createChatSession,
 } from "../services/apiService";
@@ -48,7 +48,7 @@ const ChatConversation = ({ chatbot_id, showHeader = false }) => {
     setLoading(true);
 
     try {
-      const response = await chat({
+      const response = await publicChat({
         chatbot_id,
         session_id: sessionId,
         query: originalInput,
@@ -57,7 +57,7 @@ const ChatConversation = ({ chatbot_id, showHeader = false }) => {
       setMessages((prev) =>
         prev.map((msg) =>
           msg.isPlaceholder && msg.id === placeholderId
-            ? { role: "bot", content: response.answer }
+            ? { role: "bot", content: response.data.answer }
             : msg,
         ),
       );

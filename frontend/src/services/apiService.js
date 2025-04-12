@@ -193,3 +193,12 @@ export const processDocument = async (chatbot_id) => {
     throw error;
   }
 };
+
+export const publicChat = async (data) => {
+  try {
+    const response = await api.post("/chat/public-chat", data);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
