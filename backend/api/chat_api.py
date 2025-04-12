@@ -164,3 +164,26 @@ def public_chat():
             message=str(e)
         )
         return jsonify(error_response.model_dump()), 500
+    
+@chat_api.route("/public-create-session", methods=["POST"])
+def public_create_session():
+    try:
+        data = CreateSessionRequest(**request.json)
+        logging.info("Creating public session for chatbot_id: %s", data.chatbot_id)
+        # Initialize ChatServiceImpl without a user token.
+        chat_service = ChatServiceImpl()
+        response, status_code = chat_service.create_session(data)
+        return jsonify(response), status_code
+    except ValidationError as e:
+        error_response = ErrorResponse(
+            success=False,
+            message="Validation failed",
+            data=e.errors()
+        )
+        return jsonify(error_response.model_dump()), 422
+    except Exception as e:
+        error_response = ErrorResponse(
+            success=False,
+            message=str(e)
+        )
+        return jsonify(error_response.model_dump()), 500

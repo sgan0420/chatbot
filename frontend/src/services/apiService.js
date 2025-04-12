@@ -202,3 +202,14 @@ export const publicChat = async (data) => {
     throw error.response?.data || error.message;
   }
 };
+
+export const publicCreateSession = async (chatbot_id) => {
+  try {
+    const response = await api.post("/chat/public-create-session", {
+      chatbot_id,
+    });
+    return response.data.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};

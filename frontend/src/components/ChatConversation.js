@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   publicChat,
   getChatHistory,
-  createChatSession,
+  publicCreateSession,
 } from "../services/apiService";
 
 const ChatConversation = ({ chatbot_id, showHeader = false }) => {
@@ -17,7 +17,7 @@ const ChatConversation = ({ chatbot_id, showHeader = false }) => {
 
   useEffect(() => {
     const createSession = async () => {
-      const res = await createChatSession(chatbot_id);
+      const res = await publicCreateSession(chatbot_id);
       setSessionId(res.session_id);
     };
     if (!sessionCreated.current) {
