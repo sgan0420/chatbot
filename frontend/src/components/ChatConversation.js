@@ -12,12 +12,18 @@ const ChatConversation = ({ chatbot_id, showHeader = false }) => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Minimal change: Use a ref to guard session creation
+  const sessionCreated = useRef(false);
+
   useEffect(() => {
     const createSession = async () => {
       const res = await createChatSession(chatbot_id);
       setSessionId(res.session_id);
     };
-    createSession();
+    if (!sessionCreated.current) {
+      sessionCreated.current = true;
+      createSession();
+    }
   }, [chatbot_id]);
 
   useEffect(() => {
