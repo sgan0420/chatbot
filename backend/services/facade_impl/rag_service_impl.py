@@ -152,22 +152,22 @@ class RAGServiceImpl(RAGService):
                     )
             elif file_type == '.pdf':
                 return Document(
-                    page_content=PDFProcessor().process_file(temp_file_path),
+                    page_content=PDFProcessor(temp_file_path).process_file(),
                     metadata=metadata
                 )
             elif file_type == '.csv':
                 return Document(
-                    page_content=CSVProcessor().process_file(temp_file_path),
+                    page_content=CSVProcessor(temp_file_path).process_file(),
                     metadata=metadata
                 )
             elif file_type == '.xlsx' or file_type == '.xls':
                 return Document(
-                    page_content=ExcelProcessor().process_file(temp_file_path),
+                    page_content=ExcelProcessor(temp_file_path).process_file(),
                     metadata=metadata
                 )
             elif file_type == '.docx' or file_type == '.doc':
                 return Document(
-                    page_content=WordProcessor().process_file(temp_file_path),
+                    page_content=WordProcessor(temp_file_path).process_file(),
                     metadata=metadata
                 )
             else:
@@ -216,6 +216,12 @@ class RAGServiceImpl(RAGService):
                     # Process the file url
                     document = self._process_url_document(url)
                     if document:
+                        # Update is_processed to True for the newly processed documents
+                        supabase.table('documents') \
+                            .update({'is_processed': True}) \
+                            .eq('bucket_path', bucket_path) \
+                            .execute()
+                        logging.info(f"Successfully processed document {url}")
                         # Split the document into chunks
                         chunks = self.text_splitter.split_documents([document])
                         documents.extend(chunks)
@@ -239,12 +245,6 @@ class RAGServiceImpl(RAGService):
             else:
                 self.vector_store = FAISS.from_documents(documents=documents, embedding=self.embeddings)
                 logging.info("Created a new vector store with the new documents")
-            
-            # Update is_processed to True for the newly processed documents
-            supabase.table('documents') \
-                .update({'is_processed': True}) \
-                .eq('chatbot_id', chatbot_id) \
-                .execute()
             
             # Save the vector store to Supabase bucket
             self._save_vector_store(user_id, chatbot_id, supabase)

@@ -1,9 +1,9 @@
 from docx import Document
 
 class WordProcessor:
-    def __init__(self, doc_path):
-        self.doc_path = doc_path
-        self.document = Document(doc_path)
+    def __init__(self, file_path):
+        self.file_path = file_path
+        self.document = Document(file_path)
         
         # Create mappings for quick lookup
         self._create_element_mappings()

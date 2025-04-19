@@ -2,8 +2,8 @@ import pdfplumber
 import re
 
 class PDFProcessor:
-    def __init__(self, pdf_path):
-        self.pdf_path = pdf_path
+    def __init__(self, file_path):
+        self.file_path = file_path
         # store the table numbers that have been processed (used for skipping table that is a continuation of a table from the previous page)
         self.processed_tables = set()
         self.content_per_page = {}
@@ -16,7 +16,7 @@ class PDFProcessor:
         """Check if table2 is a continuation of table1."""
         # Check if tables have the same number of columns
         if len(table1[0]) != len(table2[0]):
-            print("TABLES HAVE DIFFERENT NUMBER OF COLUMNS, SO THEY ARE NOT CONTINUATIONS")
+            # print("TABLES HAVE DIFFERENT NUMBER OF COLUMNS, SO THEY ARE NOT CONTINUATIONS")
             return False
         
         # Get the last row of table1 and the first row of table2
@@ -39,7 +39,7 @@ class PDFProcessor:
                 col1_is_numeric = col1_str.isdigit()
                 col2_is_numeric = col2_str.isdigit()
                 if col1_is_numeric != col2_is_numeric:
-                    print("TABLES HAVE DIFFERENT DATA TYPES (ONE IS NUMERIC AND THE OTHER IS NOT), SO THEY ARE NOT CONTINUATIONS")
+                    # print("TABLES HAVE DIFFERENT DATA TYPES (ONE IS NUMERIC AND THE OTHER IS NOT), SO THEY ARE NOT CONTINUATIONS")
                     return False
                 
                 date_patterns = [
@@ -51,7 +51,7 @@ class PDFProcessor:
                 col1_is_date = any(re.match(pattern, col1_str) for pattern in date_patterns)
                 col2_is_date = any(re.match(pattern, col2_str) for pattern in date_patterns)
                 if col1_is_date != col2_is_date:
-                    print("TABLES HAVE DIFFERENT DATA TYPES (ONE IS DATE AND THE OTHER IS NOT), SO THEY ARE NOT CONTINUATIONS")
+                    # print("TABLES HAVE DIFFERENT DATA TYPES (ONE IS DATE AND THE OTHER IS NOT), SO THEY ARE NOT CONTINUATIONS")
                     return False
         except (IndexError, AttributeError):
             return False
@@ -129,7 +129,7 @@ class PDFProcessor:
 
     def _extract_table(self, page_num, table_num):
         """Extract a specific table from a page and check for continuation."""
-        with pdfplumber.open(self.pdf_path) as pdf:
+        with pdfplumber.open(self.file_path) as pdf:
             table_page = pdf.pages[page_num]
             tables = table_page.extract_tables()
             # Obtain the current table
@@ -150,8 +150,8 @@ class PDFProcessor:
                             continuation = self._extract_table(page_num + 1, 0)
                             if continuation:
                                 self.processed_tables.add((page_num + 1, 0))
-                                print("CONTINUATION FROM PAGE: ", page_num, " TABLE: ", table_num, " FOUND ON PAGE: ", page_num + 1, " TABLE: ", 0)
-                                print("ADDING CONTINUATION TO PROCESSED TABLES SET")
+                                # print("CONTINUATION FROM PAGE: ", page_num, " TABLE: ", table_num, " FOUND ON PAGE: ", page_num + 1, " TABLE: ", 0)
+                                # print("ADDING CONTINUATION TO PROCESSED TABLES SET")
                                 # 5. merge the current table with the continuation
                                 return self._merge_tables(current_table, continuation)
             
@@ -196,7 +196,7 @@ class PDFProcessor:
 
     def process_file(self):
         """Process PDF and extract text and tables."""
-        with pdfplumber.open(self.pdf_path) as pdf:
+        with pdfplumber.open(self.file_path) as pdf:
 
             # store the text from all tables in the pdf
             text_from_tables = []
@@ -208,10 +208,10 @@ class PDFProcessor:
                 # get tables in the current page
                 tables = page.find_tables(table_settings=self._get_table_settings(page))
 
-                print("***************************")
-                print("page number: ", pagenum)                
-                print("number of tables: ", len(tables))
-                print("***************************")
+                # print("***************************")
+                # print("page number: ", pagenum)                
+                # print("number of tables: ", len(tables))
+                # print("***************************")
 
                 # ================================
                 # Extract tables from the page
@@ -222,12 +222,12 @@ class PDFProcessor:
                     # Skip if this table has already been processed (this can happen if this table is a continuation of a table from the previous page)
                     if (pagenum, table_num) in self.processed_tables:
                         text_from_tables.append("")
-                        print("SKIPPING TABLE EXTRACTION - PAGE: ", pagenum, " TABLE: ", table_num)
+                        # print("SKIPPING TABLE EXTRACTION - PAGE: ", pagenum, " TABLE: ", table_num)
                         continue
                     
-                    print("STARTING TABLE EXTRACTION - PAGE: ", pagenum, " TABLE: ", table_num)
+                    # print("STARTING TABLE EXTRACTION - PAGE: ", pagenum, " TABLE: ", table_num)
                     curr_table = self._extract_table(pagenum, table_num)
-                    print("FINISHED TABLE EXTRACTION - PAGE: ", pagenum, " TABLE: ", table_num)
+                    # print("FINISHED TABLE EXTRACTION - PAGE: ", pagenum, " TABLE: ", table_num)
                     
                     if curr_table:
                         table_string = self._table_converter(curr_table)
@@ -279,8 +279,8 @@ class PDFProcessor:
                 pure_texts.append("".join(element["content"] for element in elements))
             
             # join the pure texts and text from tables
-            print("table count from <pure_texts>: ", sum(page.count('[[TABLE]]') for page in pure_texts))
-            print("table count from <text_from_tables>: ", len(text_from_tables))
+            # print("table count from <pure_texts>: ", sum(page.count('[[TABLE]]') for page in pure_texts))
+            # print("table count from <text_from_tables>: ", len(text_from_tables))
             
             if len(pure_texts) != len(text_from_tables):
                 raise ValueError("Not enough table entries for the number of placeholders.")
