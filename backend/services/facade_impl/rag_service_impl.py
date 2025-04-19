@@ -1,33 +1,26 @@
 import logging
 import os
-import re
 import shutil
 import tempfile
 import uuid
 from io import BytesIO
-from typing import List
 
 import chardet
-import docx
-import fitz  # PyMuPDF
-import pandas as pd
-import pdfplumber
 import requests
 from config import get_supabase_client
 from dotenv import load_dotenv
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.schema import Document
-from langchain.text_splitter import (
-    MarkdownTextSplitter,
-    RecursiveCharacterTextSplitter,
-    TokenTextSplitter,
-)
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
 from models.request.rag_request import ProcessDocumentsRequest
 from models.response.rag_response import ProcessDocumentsResponse
 from models.response.response_wrapper import ErrorResponse, SuccessResponse
-from PyPDF2 import PdfReader
 from services.facade.rag_service import RAGService
+from services.facade_impl.csv_processor import CSVProcessor
+from services.facade_impl.excel_processor import ExcelProcessor
+from services.facade_impl.pdf_processor import PDFProcessor
+from services.facade_impl.word_processor import WordProcessor
 from supabase import Client
 
 BUCKET_NAME = "DOCUMENTS"
@@ -45,35 +38,12 @@ class RAGServiceImpl(RAGService):
         if not api_key:
             raise ValueError("Please set OPENAI_API_KEY in the .env file")
         self.embeddings = OpenAIEmbeddings()
-        # Enhanced text splitters
-        self.text_splitters = {
-            "default": RecursiveCharacterTextSplitter(
-                chunk_size=1000,
-                chunk_overlap=200,
-                length_function=len
-            ),
-            "markdown": MarkdownTextSplitter(
-                chunk_size=1000,
-                chunk_overlap=200
-            ),
-            "token": TokenTextSplitter(
-                chunk_size=500,
-                chunk_overlap=50
-            )
-        }
-        
-        self.text_splitter = self.text_splitters["default"]
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            separators=["\n\n", "\n\n\n"]
+        )
         self.vector_store = None
-
-
-    def _determine_text_splitter(self, file_type: str) -> RecursiveCharacterTextSplitter:
-        """Determine the best text splitter based on file type"""
-        if file_type in ['.md', '.markdown']:
-            return self.text_splitters["markdown"]
-        elif file_type in ['.pdf', '.docx', '.doc']:
-            return self.text_splitters["token"]
-        else:
-            return self.text_splitters["default"]
 
 
     def _save_vector_store(self, user_id: str, chatbot_id: str, supabase: Client):
@@ -139,699 +109,90 @@ class RAGServiceImpl(RAGService):
             logging.error(f"Error saving vector store to Supabase: {str(e)}")
             raise
 
-
-    def _process_url_document(self, url: str) -> List[Document]:
-        """Process document from URL"""
+    def _process_url_document(self, url: str) -> Document:
+        temp_dir = None
         try:
             response = requests.get(url)
-            response.raise_for_status()
+            response.raise_for_status()  # Raise an error if download fails
             
             filename = url.split('/')[-1].split('?')[0]
             file_content = BytesIO(response.content)
-            file_type = os.path.splitext(filename)[1].lower()
-            self.text_splitter = self._determine_text_splitter(file_type)
+            file_type = os.path.splitext(filename)[1].lower()  # e.g. .txt, .pdf, .docx, .doc, .csv, .xlsx, .xls
+            
+            # Create base metadata
+            metadata = {
+                'source': url,
+                'file_type': file_type.lstrip('.'),
+                'file_name': filename,
+                'content_type': response.headers.get('Content-Type', ''),
+            }
 
-            # Create a temp directory for image extraction if needed
-            temp_dir = None
-            if file_type in ['.pdf', '.docx', '.doc']:
-                temp_dir = tempfile.mkdtemp()
+            # Create a temp directory for processing
+            temp_dir = tempfile.mkdtemp()  # Create temp dir outside the with block for proper cleanup
+            temp_file_path = os.path.join(temp_dir, filename)
+            
+            # Save the file content to temp file
+            file_content.seek(0)
+            with open(temp_file_path, 'wb') as f:
+                f.write(file_content.read())
+            
+            # Process the file
+            if file_type == '.txt':
+                # Try to detect encoding
+                with open(temp_file_path, 'rb') as f:
+                    raw_data = f.read()
+                    result = chardet.detect(raw_data)
+                    encoding = result['encoding'] if result['encoding'] else 'utf-8'
                 
-            try: 
-                if filename.endswith('.pdf'):
-                    try:
-                        # For text extraction
-                        pdf_reader = PdfReader(file_content)
-                        docs = []
-                        
-                        # Try to use PyMuPDF for better extraction if available
-                        try:
-                            # Save to a temporary file for PyMuPDF (it works better with files)
-                            temp_file_path = os.path.join(temp_dir, filename) if temp_dir else None
-                            if temp_file_path:
-                                file_content.seek(0)
-                                with open(temp_file_path, 'wb') as f:
-                                    f.write(file_content.read())
-                                
-                                # Use PyMuPDF for text extraction
-                                pdf_document = fitz.open(temp_file_path)
-                                docs = []  # Initialize docs list
-                                
-                                # Extract text with PyMuPDF first
-                                page_contents = []
-                                for page_idx, page in enumerate(pdf_document):
-                                    # Extract text with better formatting
-                                    page_text = page.get_text("text")
-                                    page_contents.append({
-                                        "page_idx": page_idx,
-                                        "text": page_text
-                                    })
-                                
-                                pdf_document.close()
-                                
-                                # Use pdfplumber for better table extraction
-                                with pdfplumber.open(temp_file_path) as pdf:
-                                    for page_idx, page in enumerate(pdf.pages):
-                                        try:
-                                            # Extract tables with pdfplumber
-                                            tables = page.extract_tables()
-                                            for table_idx, table in enumerate(tables):
-                                                # Skip empty tables
-                                                if not table or len(table) <= 1:
-                                                    continue
-                                                    
-                                                # Get header (first row)
-                                                header = table[0]
-                                                
-                                                # Process data rows
-                                                for row_idx, row in enumerate(table[1:], 1):
-                                                    # Skip empty rows
-                                                    if not row or all(cell is None or cell.strip() == "" for cell in row):
-                                                        continue
-                                                        
-                                                    row_content = f"Table {table_idx+1} Row {row_idx} from PDF page {page_idx+1}:\n"
-                                                    
-                                                    # Add data in key-value format with header as keys
-                                                    for col_idx, cell in enumerate(row):
-                                                        # Handle None values and empty cells
-                                                        cell_text = cell if cell is not None else ""
-                                                        cell_text = cell_text.strip()
-                                                        
-                                                        # Get column name from header
-                                                        col_name = ""
-                                                        if col_idx < len(header) and header[col_idx] is not None:
-                                                            col_name = header[col_idx].strip()
-                                                        
-                                                        if not col_name:
-                                                            col_name = f"Column {col_idx+1}"
-                                                            
-                                                        # Only add non-empty cells
-                                                        if cell_text:
-                                                            row_content += f"{col_name}: {cell_text}; "
-                                                    
-                                                    # Remove trailing semicolon and space
-                                                    if row_content.endswith("; "):
-                                                        row_content = row_content[:-2]
-                                                    
-                                                    # Add as document if it has content
-                                                    if ":" in row_content and ";" in row_content:
-                                                        docs.append(Document(
-                                                            page_content=row_content,
-                                                            metadata={
-                                                                "source": url,
-                                                                "page": page_idx + 1,
-                                                                "file_type": "pdf",
-                                                                "file_name": filename,
-                                                                "content_type": "table_row",
-                                                                "is_table_data": True,
-                                                                "table_id": f"{page_idx+1}-{table_idx+1}"
-                                                            }
-                                                        ))
-                                        except Exception as table_error:
-                                            logging.warning(f"pdfplumber failed on page {page_idx+1}: {str(table_error)}")
-                                
-                                # Create a document for each page with its text content
-                                for page_data in page_contents:
-                                    if page_data["text"].strip():
-                                        docs.append(Document(
-                                            page_content=page_data["text"],
-                                            metadata={
-                                                "source": url,
-                                                "page": page_data["page_idx"] + 1,
-                                                "total_pages": len(page_contents),
-                                                "file_type": "pdf",
-                                                "file_name": filename
-                                            }
-                                        ))
-                        
-                        except ImportError:
-                            # Fall back to PyPDF2 if PyMuPDF is not available
-                            for idx, page in enumerate(pdf_reader.pages):
-                                text = page.extract_text()
-                                if text.strip():  # Skip empty pages
-                                    # Try to detect tables by looking for patterns
-                                    lines = text.split('\n')
-                                    potential_tables = []
-                                    current_table = []
-                                    table_row_pattern = re.compile(r'\s+'.join([r'\S+'] * 3))  # At least 3 columns
-                                    
-                                    for line in lines:
-                                        # Simple heuristic: if line contains multiple whitespace-separated items
-                                        if table_row_pattern.search(line):
-                                            current_table.append(line)
-                                        elif current_table:
-                                            # End of table - add to potential tables if it has at least 2 rows
-                                            if len(current_table) >= 2:
-                                                potential_tables.append(current_table)
-                                            current_table = []
-                                    
-                                    # Add any remaining table
-                                    if current_table and len(current_table) >= 2:
-                                        potential_tables.append(current_table)
-                                    
-                                    # Process detected tables
-                                    table_rows_docs = []
-                                    if potential_tables:
-                                        for table_idx, table_rows in enumerate(potential_tables):
-                                            # Try to identify header row (first row)
-                                            header_row = []
-                                            if len(table_rows) > 0:
-                                                header = table_rows[0]
-                                                # Split by multiple spaces to get columns
-                                                header_row = re.split(r'\s{2,}', header.strip())
-                                            
-                                            # Process each data row
-                                            for row_idx, row in enumerate(table_rows[1:], 1):
-                                                # Try to extract columns based on consistent whitespace
-                                                columns = re.split(r'\s{2,}', row.strip())
-                                                
-                                                # Create row document with key-value pairs
-                                                if columns:
-                                                    row_content = f"Table {table_idx+1} Row {row_idx} from PDF page {idx+1}:\n"
-                                                    
-                                                    # Add data in key-value format
-                                                    for col_idx, cell in enumerate(columns):
-                                                        col_name = header_row[col_idx] if header_row and col_idx < len(header_row) else f"Column {col_idx+1}"
-                                                        row_content += f"{col_name}: {cell}; "
-                                                    
-                                                    # Remove trailing semicolon and space
-                                                    if row_content.endswith("; "):
-                                                        row_content = row_content[:-2]
-                                                        
-                                                    table_rows_docs.append(row_content)
-                                    
-                                    # Add the main page content
-                                    docs.append(Document(
-                                        page_content=text,
-                                        metadata={
-                                            "source": url,
-                                            "page": idx + 1,
-                                            "total_pages": len(pdf_reader.pages),
-                                            "file_type": "pdf",
-                                            "file_name": filename,
-                                            "has_tables": len(potential_tables) > 0,
-                                            "table_count": len(potential_tables)
-                                        }
-                                    ))
-                                    
-                                    # Add individual row documents
-                                    for row_doc in table_rows_docs:
-                                        docs.append(Document(
-                                            page_content=row_doc,
-                                            metadata={
-                                                "source": url,
-                                                "page": idx + 1,
-                                                "total_pages": len(pdf_reader.pages),
-                                                "file_type": "pdf",
-                                                "file_name": filename,
-                                                "content_type": "table_row",
-                                                "is_table_data": True
-                                            }
-                                        ))
-                        
-                        logging.info(f"Successfully processed PDF file from URL: {url}")
-                        
-                    except Exception as pdf_error:
-                        logging.error(f"Error in PDF processing: {str(pdf_error)}")
-                        # Fall back to basic PDF extraction
-                        for idx, page in enumerate(pdf_reader.pages):
-                            text = page.extract_text()
-                            if text.strip():  # Skip empty pages
-                                docs.append(Document(
-                                    page_content=text,
-                                    metadata={
-                                        "source": url,
-                                        "page": idx + 1,
-                                        "total_pages": len(pdf_reader.pages),
-                                        "file_type": "pdf",
-                                        "file_name": filename
-                                    }
-                                ))
-                    
-                elif filename.endswith('.txt'):
-                    content = file_content.read().decode('utf-8')
-                    processed_content = content.replace('\r\n', '\n')  # Normalize line endings
-                    # Create paragraphs from double line breaks
-                    paragraphs = [p.strip() for p in processed_content.split('\n\n') if p.strip()]
-                    formatted_content = '\n\n'.join(paragraphs)
-                    docs = [Document(
-                            page_content=formatted_content,
-                            metadata={
-                                "source": url,
-                                "file_type": file_type,
-                                "file_name": filename,
-                                "paragraph_count": len(paragraphs)
-                            }
-                        )]
-                    logging.info(f"Successfully processed text file from URL: {url}")
-                    
-                elif filename.endswith('.csv'):
-                    try:
-                        # First try to infer the encoding
-                        file_content.seek(0)
-                        sample = file_content.read(min(1024 * 10, len(file_content.getbuffer())))
-                        
-                        # Chardet for encoding detection
-                        try:
-                            detected = chardet.detect(sample)
-                            encoding = detected.get('encoding', 'utf-8')
-                        except ImportError:
-                            encoding = 'utf-8'
-                        
-                        # Reset file position
-                        file_content.seek(0)
-                        
-                        # Try to detect delimiter
-                        sample_str = sample.decode(encoding, errors='replace')
-                        possible_delimiters = [',', ';', '\t', '|']
-                        delimiter_counts = {delim: sample_str.count(delim) for delim in possible_delimiters}
-                        delimiter = max(delimiter_counts, key=delimiter_counts.get)
-                        
-                        # Read CSV with pandas
-                        df = pd.read_csv(file_content, delimiter=delimiter, encoding=encoding, on_bad_lines='skip')
-                        
-                        docs = []
-                        
-                        # Process by chunks to preserve related rows
-                        chunk_size = 20  # Adjust based on your needs
-                        for i in range(0, len(df), chunk_size):
-                            chunk = df.iloc[i:i+chunk_size]
-                            
-                            # Format as markdown table for better structure
-                            md_table = "| " + " | ".join(str(col) for col in df.columns) + " |\n"
-                            md_table += "| " + " | ".join("---" for _ in df.columns) + " |\n"
-                            
-                            for _, row in chunk.iterrows():
-                                md_table += "| " + " | ".join(str(val) for val in row) + " |\n"
-                            
-                            # Also include row-by-row data for easier searching
-                            row_data = []
-                            for idx, row in chunk.iterrows():
-                                row_str = f"Row #{idx + 1}:\n"
-                                for col in df.columns:
-                                    row_str += f"  {col}: {row[col]}\n"
-                                row_data.append(row_str)
-                            
-                            # Combine table and row data
-                            content = md_table + "\n\n" + "\n\n".join(row_data)
-                            
-                            doc = Document(
-                                page_content=content,
-                                metadata={
-                                    "source": url,
-                                    "chunk_start": i,
-                                    "chunk_end": min(i+chunk_size, len(df)),
-                                    "total_rows": len(df),
-                                    "columns": list(df.columns),
-                                    "file_type": "csv",
-                                    "file_name": filename
-                                }
-                            )
-                            docs.append(doc)
-                                
-                    except Exception as csv_error:
-                        logging.warning(f"Error in advanced CSV processing: {str(csv_error)}. Falling back to basic processing.")
-                        # Fall back to basic CSV processing
-                        file_content.seek(0)
-                        df = pd.read_csv(file_content)
-                        docs = []
-                        for idx, row in df.iterrows():
-                            content = f"Record #{idx + 1}\n"
-                            for col in df.columns:
-                                content += f"{col}: {row[col]}\n"
-                            doc = Document(
-                                page_content=content,
-                                metadata={
-                                    "source": url, 
-                                    "row": idx,
-                                    "file_type": "csv",
-                                    "file_name": filename
-                                }
-                            )
-                            docs.append(doc)
-                    
-                    logging.info(f"Successfully processed CSV file from URL: {url}")
-                    
-                elif filename.endswith('.md'):
-                    content = file_content.read().decode('utf-8')
-                        
-                    # Process headers and structure
-                    sections = []
-                    current_section = {"title": "", "content": "", "level": 0}
-                    lines = content.split('\n')
-                    
-                    for line in lines:
-                        header_match = re.match(r'^(#{1,6})\s+(.+)$', line)
-                        if header_match:
-                            # If we were building a section, save it
-                            if current_section["content"]:
-                                sections.append(current_section)
-                            
-                            # Start a new section
-                            level = len(header_match.group(1))
-                            title = header_match.group(2)
-                            current_section = {
-                                "title": title,
-                                "content": line + "\n",
-                                "level": level
-                            }
-                        else:
-                            # Add to current section
-                            current_section["content"] += line + "\n"
-                    
-                    # Add the last section
-                    if current_section["content"]:
-                        sections.append(current_section)
-                    
-                    # Create documents based on sections
-                    if sections:
-                        docs = []
-                        for i, section in enumerate(sections):
-                            # Create a document for each major section
-                            docs.append(Document(
-                                page_content=section["content"],
-                                metadata={
-                                    "source": url,
-                                    "file_type": "markdown",
-                                    "file_name": filename,
-                                    "section_title": section["title"],
-                                    "section_level": section["level"],
-                                    "section_index": i,
-                                    "total_sections": len(sections)
-                                }
-                            ))
-                    else:
-                        # No sections found, treat as one document
-                        docs = [Document(
-                            page_content=content,
-                            metadata={
-                                "source": url,
-                                "file_type": "markdown",
-                                "file_name": filename
-                            }
-                        )]
-                    
-                    logging.info(f"Successfully processed markdown file from URL: {url}")
-                    
-                elif filename.endswith(('.xlsx', '.xls')):
-                    try:
-                        # Read all sheets
-                        file_content.seek(0)
-                        excel_file = pd.ExcelFile(file_content)
-                        sheet_names = excel_file.sheet_names
-                        
-                        docs = []
-                        
-                        for sheet_name in sheet_names:
-                            df = pd.read_excel(excel_file, sheet_name=sheet_name)
-                            
-                            # Skip empty sheets
-                            if df.empty:
-                                continue
-                                
-                            # Process by chunks to preserve context
-                            chunk_size = 20  # Adjust based on your needs
-                            for i in range(0, len(df), chunk_size):
-                                chunk = df.iloc[i:i+chunk_size]
-                                
-                                # Format as markdown table for better structure
-                                md_table = f"## Sheet: {sheet_name}\n\n"
-                                md_table += "| " + " | ".join(str(col) for col in df.columns) + " |\n"
-                                md_table += "| " + " | ".join("---" for _ in df.columns) + " |\n"
-                                
-                                for _, row in chunk.iterrows():
-                                    md_table += "| " + " | ".join(str(val) for val in row) + " |\n"
-                                
-                                # Also include row-by-row data for easier searching
-                                row_data = []
-                                for idx, row in chunk.iterrows():
-                                    row_str = f"Row #{idx + 1}:\n"
-                                    for col in df.columns:
-                                        row_str += f"  {col}: {row[col]}\n"
-                                    row_data.append(row_str)
-                                
-                                # Combine table and row data
-                                content = md_table + "\n\n" + "\n\n".join(row_data)
-                                
-                                doc = Document(
-                                    page_content=content,
-                                    metadata={
-                                        "source": url,
-                                        "sheet_name": sheet_name,
-                                        "chunk_start": i,
-                                        "chunk_end": min(i+chunk_size, len(df)),
-                                        "total_sheets": len(sheet_names),
-                                        "total_rows": len(df),
-                                        "columns": list(df.columns),
-                                        "file_type": "excel",
-                                        "file_name": filename
-                                    }
-                                )
-                                docs.append(doc)
-                        
-                    except Exception as excel_error:
-                        logging.warning(f"Error in advanced Excel processing: {str(excel_error)}. Falling back to basic processing.")
-                        # Fall back to basic Excel processing
-                        file_content.seek(0)
-                        df = pd.read_excel(file_content)
-                        docs = []
-                        for idx, row in df.iterrows():
-                            content = f"Record #{idx + 1}\n"
-                            for col in df.columns:
-                                content += f"{col}: {row[col]}\n"
-                            doc = Document(
-                                page_content=content,
-                                metadata={
-                                    "source": url, 
-                                    "row": idx,
-                                    "file_type": "excel",
-                                    "file_name": filename
-                                }
-                            )
-                            docs.append(doc)
-                    
-                    logging.info(f"Successfully processed Excel file from URL: {url}")
-                    
-                elif filename.endswith(('.docx', '.doc')):
-                    try:
-                        # Save to a temporary file for better processing
-                        temp_file_path = os.path.join(temp_dir, filename) if temp_dir else None
-                        if temp_file_path:
-                            file_content.seek(0)
-                            with open(temp_file_path, 'wb') as f:
-                                f.write(file_content.read())
-                            
-                            # Process document with python-docx
-                            doc = docx.Document(temp_file_path)
-                            
-                            # Extract document structure
-                            content = []
-                            headings = []
-                            docs = []  # Initialize docs list here
-                            
-                            # Process paragraphs and extract structure
-                            for para in doc.paragraphs:
-                                if para.text.strip():
-                                    # Check if it's a heading
-                                    if para.style.name.startswith('Heading'):
-                                        heading_level = int(para.style.name.replace('Heading', '')) if para.style.name != 'Heading' else 1
-                                        heading = '#' * heading_level + ' ' + para.text
-                                        content.append(heading)
-                                        headings.append({
-                                            "text": para.text,
-                                            "level": heading_level
-                                        })
-                                    else:
-                                        # Regular paragraph
-                                        content.append(para.text)
-                            
-                            # Process tables with better structure
-                            for table in doc.tables:
-                                table_row_documents = []
-                                
-                                # Extract header row if exists
-                                header_row = []
-                                if table.rows:
-                                    for cell in table.rows[0].cells:
-                                        header_cell_text = cell.text.strip().replace("\n", " ")
-                                        header_row.append(header_cell_text)
-                                    
-                                    # If header row is empty, don't treat first row as header
-                                    if not any(header_row):
-                                        header_row = []
-                                
-                                # Extract data rows
-                                for i, row in enumerate(table.rows):
-                                    if i == 0 and header_row and any(header_row):  # Skip header in data extraction
-                                        continue
-                                        
-                                    row_data = []
-                                    for cell in row.cells:
-                                        # Clean up cell text - replace newlines with spaces
-                                        cell_text = cell.text.strip().replace("\n", " ")
-                                        row_data.append(cell_text)
-                                    
-                                    if any(row_data):  # Only add non-empty rows
-                                        # Create individual row document in key-value format
-                                        row_idx = i if not header_row else i - 1
-                                        row_content = f"Table Row {row_idx + 1} from Word document {filename}:\n"
-                                        
-                                        # Add data in key-value format with header as keys
-                                        for col_idx, cell in enumerate(row_data):
-                                            col_name = header_row[col_idx] if header_row and col_idx < len(header_row) else f"Column {col_idx+1}"
-                                            row_content += f"{col_name}: {cell}; "
-                                        
-                                        # Remove trailing semicolon and space
-                                        if row_content.endswith("; "):
-                                            row_content = row_content[:-2]
-                                            
-                                        table_row_documents.append(row_content)
-                                
-                                # Add the table row documents to the documents collection
-                                for row_doc in table_row_documents:
-                                    docs.append(Document(
-                                        page_content=row_doc,
-                                        metadata={
-                                            "source": url,
-                                            "file_type": "word",
-                                            "file_name": filename,
-                                            "content_type": "table_row",
-                                            "is_table_data": True,
-                                            "table_id": f"table-{table.index if hasattr(table, 'index') else table_idx+1}"
-                                        }
-                                    ))
-                            
-                            # Combine all content with proper spacing
-                            full_content = '\n\n'.join(content)
-                            
-                            # Create document with enhanced metadata
-                            docs.append(Document(
-                                page_content=full_content,
-                                metadata={
-                                    "source": url,
-                                    "file_type": "word",
-                                    "file_name": filename,
-                                    "headings": headings
-                                }
-                            ))
-                    
-                    except Exception as docx_error:
-                        logging.warning(f"Error in advanced DOCX processing: {str(docx_error)}. Falling back to basic processing.")
-                        # Fall back if temp file couldn't be created
-                        file_content.seek(0)
-                        doc = docx.Document(file_content)
-                        content = []
-                        
-                        # Extract text from paragraphs
-                        for para in doc.paragraphs:
-                            if para.text.strip():
-                                content.append(para.text)
-                        
-                        # Process tables with better formatting
-                        tables_data = []
-                        table_row_documents = []
-                        for table_idx, table in enumerate(doc.tables):
-                            if not table.rows:
-                                continue
-                                
-                            # Try to identify header row
-                            header_row = []
-                            if table.rows:
-                                for cell in table.rows[0].cells:
-                                    header_row.append(cell.text.strip())
-                            
-                            # Format as markdown table
-                            table_text = f"\n\nTable {table_idx+1}:\n"
-                            
-                            # Add table summary
-                            table_text += f"{len(table.rows) - (1 if any(header_row) else 0)} rows, {len(header_row)} columns"
-                            if any(header_row):
-                                table_text += f" with headers: {', '.join(header_row)}"
-                            
-                            # Skip building markdown table, and focus on key-value data
-                            for row_idx, row in enumerate(table.rows):
-                                if row_idx == 0 and any(header_row):
-                                    continue  # Skip header
-                                    
-                                row_text = []
-                                for cell in row.cells:
-                                    clean_text = cell.text.strip().replace("\n", " ")
-                                    row_text.append(clean_text)
-                                
-                                if any(row_text):  # Only add non-empty rows
-                                    # Create individual row document in key-value format
-                                    row_content = f"Table {table_idx+1} Row {row_idx} from Word document {filename}:\n"
-                                    
-                                    # Add data in key-value format with header as keys
-                                    for col_idx, cell in enumerate(row_text):
-                                        col_name = header_row[col_idx] if header_row and col_idx < len(header_row) else f"Column {col_idx+1}"
-                                        row_content += f"{col_name}: {cell}; "
-                                    
-                                    # Remove trailing semicolon and space
-                                    if row_content.endswith("; "):
-                                        row_content = row_content[:-2]
-                                        
-                                    table_row_documents.append(row_content)
-                                
-                            # Add table summary instead of full content
-                            tables_data.append(table_text)
-                        
-                        # Add tables to content
-                        if tables_data:
-                            content.extend(tables_data)
-                        
-                        # Join content
-                        full_content = '\n\n'.join(content)
-                        
-                        # Create main document
-                        docs = [Document(
-                            page_content=full_content,
-                            metadata={
-                                "source": url,
-                                "file_type": "word",
-                                "file_name": filename,
-                                "has_tables": len(tables_data) > 0,
-                                "table_count": len(tables_data)
-                            }
-                        )]
-                        
-                        # Add row documents
-                        for row_doc in table_row_documents:
-                            docs.append(Document(
-                                page_content=row_doc,
-                                metadata={
-                                    "source": url,
-                                    "file_type": "word",
-                                    "file_name": filename,
-                                    "content_type": "table_row",
-                                    "is_table_data": True,
-                                    "table_id": f"table-{table_idx+1}"
-                                }
-                            ))
-                    
-                    logging.info(f"Successfully processed Word file from URL: {url}")
-                    
-                else:
-                    logging.warning(f"Unsupported file type for URL: {url}")
-                    return []
-                
-                return docs
-        
-            finally:
-                # Clean up temp directory if used
-                if temp_dir and os.path.exists(temp_dir):
-                    shutil.rmtree(temp_dir, ignore_errors=True)
-
+                with open(temp_file_path, 'r', encoding=encoding) as f:
+                    content = f.read()
+                    return Document(
+                        page_content=content,
+                        metadata=metadata
+                    )
+            elif file_type == '.pdf':
+                return Document(
+                    page_content=PDFProcessor().process_file(temp_file_path),
+                    metadata=metadata
+                )
+            elif file_type == '.csv':
+                return Document(
+                    page_content=CSVProcessor().process_file(temp_file_path),
+                    metadata=metadata
+                )
+            elif file_type == '.xlsx' or file_type == '.xls':
+                return Document(
+                    page_content=ExcelProcessor().process_file(temp_file_path),
+                    metadata=metadata
+                )
+            elif file_type == '.docx' or file_type == '.doc':
+                return Document(
+                    page_content=WordProcessor().process_file(temp_file_path),
+                    metadata=metadata
+                )
+            else:
+                raise ValueError(f"Unsupported file type: {file_type}")
+            
         except Exception as e:
-            logging.error(f"Error processing file from URL {url}: {str(e)}")
-            return []
+            logging.error(f"Error processing document from URL: {str(e)}")
+            raise
+        
+        finally:
+            # Clean up temp directory if used
+            if temp_dir and os.path.exists(temp_dir):
+                try:
+                    shutil.rmtree(temp_dir)
+                except Exception as e:
+                    logging.warning(f"Failed to clean up temporary directory: {str(e)}")
 
 
     def process_documents_from_urls(self, user_id: str, user_token: str, data: ProcessDocumentsRequest) -> tuple[dict, int]:
         """Process documents from URLs (from the documents table in Supabase)"""
         supabase = get_supabase_client(user_token)
         chatbot_id = data.chatbot_id
-        # Get document URLs from documents table for newly uploaded documents (is_processed = False)
+        
         try:
+            # Get document URLs from documents table for newly uploaded documents
             result = supabase.table('documents') \
                 .select('bucket_path') \
                 .eq('chatbot_id', chatbot_id) \
@@ -850,11 +211,16 @@ class RAGServiceImpl(RAGService):
                 bucket_path = doc['bucket_path']
                 # Get url from bucket_path
                 url = supabase.storage.from_(BUCKET_NAME).create_signed_url(bucket_path, 3600)['signedURL']
-                # Process the file url
-                docs = self._process_url_document(url)
-                if docs:
-                    documents.extend(docs)
-                else:
+                
+                try:
+                    # Process the file url
+                    document = self._process_url_document(url)
+                    if document:
+                        # Split the document into chunks
+                        chunks = self.text_splitter.split_documents([document])
+                        documents.extend(chunks)
+                except Exception as e:
+                    logging.error(f"Failed to process document {url}: {str(e)}")
                     failed_urls.append(str(url))
 
             if not documents:
@@ -863,17 +229,15 @@ class RAGServiceImpl(RAGService):
                     data={"failed_urls": failed_urls}
                 ).model_dump(), 400
 
-            logging.info("Starting document splitting...")
-            splits = self.text_splitter.split_documents(documents)
-            logging.info(f"Document splitting completed, generated {len(splits)} segments")
+            logging.info(f"Successfully split documents into {len(documents)} chunks")
 
             # If there is an existing vector store, append new documents to it
             if self.vector_store:
-                self.vector_store.add_documents(splits)
+                self.vector_store.add_documents(documents)
                 logging.info("Appended new documents to the existing vector store")
             # If there is no existing vector store, create a new one
             else:
-                self.vector_store = FAISS.from_documents(documents=splits, embedding=self.embeddings)
+                self.vector_store = FAISS.from_documents(documents=documents, embedding=self.embeddings)
                 logging.info("Created a new vector store with the new documents")
             
             # Update is_processed to True for the newly processed documents
@@ -898,3 +262,9 @@ class RAGServiceImpl(RAGService):
             return ErrorResponse(
                 message=str(e)
             ).model_dump(), 500
+        
+
+if __name__ == "__main__":
+    url = "https://lkodywmfigqsukjjcyeo.supabase.co/storage/v1/object/sign/DOCUMENTS/2498aa0a-2a68-424d-8d84-18e56267fb21/a0815493-55fc-4fcf-bafe-89b23aae551a/document/testfile_sample_product.txt?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJET0NVTUVOVFMvMjQ5OGFhMGEtMmE2OC00MjRkLThkODQtMThlNTYyNjdmYjIxL2EwODE1NDkzLTU1ZmMtNGZjZi1iYWZlLTg5YjIzYWFlNTUxYS9kb2N1bWVudC90ZXN0ZmlsZV9zYW1wbGVfcHJvZHVjdC50eHQiLCJpYXQiOjE3NDUwNDQ0NzYsImV4cCI6MTc0NTEzMDg3Nn0.Ke0Vn6YNbA93S8P4Z8B93li_sZFkgPDJPAs88YfYbYU"
+    print(RAGServiceImpl()._process_url_document(url))
+
