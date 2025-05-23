@@ -6,6 +6,7 @@ import {
   createChatbot,
   updateChatbot,
   uploadDocument,
+  processDocument,
   getChatbot,
 } from "../services/apiService";
 import "../styles/CreateBotPage.css";
@@ -142,6 +143,14 @@ function CreateBotPage() {
         console.error("File upload failed:", error);
         alert(`Failed to upload ${file.name}. Please try again.`);
       }
+    }
+    // Process the documents after upload
+    try {
+      await processDocument(chatbotId);
+      setUploadProgress(100); // Set progress to 100% after processing
+    } catch (error) {
+      console.error("Document processing failed:", error);
+      alert("Failed to process documents. Please try again.");
     }
   };
 
