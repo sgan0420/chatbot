@@ -7,13 +7,8 @@ function UploadCard({ title, description, advanced = false, onFileSelect }) {
   // Define allowed file types based on title
   const fileTypes = {
     "PDF files": ".pdf",
-    "Q&As": ".csv,.json,.txt",
-    URLs: ".txt",
+    "Word files": ".doc,.docx",
     "CSV files": ".csv",
-    Oracle: ".json,.csv",
-    JSONL: ".jsonl",
-    "RAW files": ".txt,.json,.csv",
-    "XML files": ".xml",
     "Text files": ".txt",
   };
 

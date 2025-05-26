@@ -20,11 +20,6 @@ const uploadOptions = {
       icon: "📄",
     },
     {
-      title: "Q&As",
-      description: "Provide frequently asked questions and answers.",
-      icon: "❓",
-    },
-    {
       title: "CSV files",
       description: "Upload CSV files containing texts.",
       icon: "📊",
@@ -38,11 +33,6 @@ const uploadOptions = {
       title: "Text files",
       description: "Upload plain text documents.",
       icon: "📄",
-    },
-    {
-      title: "JSONL",
-      description: "Upload JSONL formatted data.",
-      icon: "📋",
     },
   ],
 };
@@ -121,7 +111,6 @@ function CreateBotPage() {
       else if (extension === "doc" || extension === "docx")
         fileType = "Word files";
       else if (extension === "txt") fileType = "Text files";
-      else if (extension === "jsonl") fileType = "JSONL";
 
       handleFileSelect(file, fileType);
     });
