@@ -13,10 +13,10 @@ function HomePage() {
             website - no coding required
           </p>
           <div className="hero-buttons">
-            <Link to="/login">
+            <Link to="/create-bot">
               <button className="primary-button">Create Your Chatbot</button>
             </Link>
-            <Link to="/dashboard">
+            <Link to="/bots">
               <button className="secondary-button">View Your Bots</button>
             </Link>
           </div>

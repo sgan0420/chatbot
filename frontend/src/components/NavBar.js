@@ -47,9 +47,9 @@ function NavBar() {
             <a className="nav-link" onClick={() => navigate("/faq")}>
               FAQ
             </a>
-            <a className="nav-link" onClick={() => navigate("/contact")}>
+            {/* <a className="nav-link" onClick={() => navigate("/contact")}>
               Contact
-            </a>
+            </a> */}
           </nav>
 
           {/* Auth Buttons */}

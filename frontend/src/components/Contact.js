@@ -80,21 +80,23 @@ function Contact() {
           <h2>Contact Information</h2>
           <div className="contact-item">
             <i className="contact-icon">📍</i>
-            <p>123 AI Boulevard, San Francisco, CA 94105</p>
+            <p>
+              Jalan Lagoon Selatan, Bandar Sunway, 47500 Subang Jaya, Selangor
+            </p>
           </div>
-          <div className="contact-item">
+          {/* <div className="contact-item">
             <i className="contact-icon">📞</i>
             <p>+1 (800) GASY-BOT</p>
-          </div>
+          </div> */}
           <div className="contact-item">
             <i className="contact-icon">✉️</i>
-            <p>info@gasyai.com</p>
+            <p>msc22.chatbot@gmail.com</p>
           </div>
-          <div className="contact-hours">
+          {/* <div className="contact-hours">
             <h3>Business Hours</h3>
             <p>Monday - Friday: 9AM - 5PM PST</p>
             <p>Saturday - Sunday: Closed</p>
-          </div>
+          </div> */}
         </div>
 
         <div className="contact-form-container">
