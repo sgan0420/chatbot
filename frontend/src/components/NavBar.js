@@ -38,12 +38,12 @@ function NavBar() {
             <a className="nav-link" onClick={() => navigate("/bots")}>
               Bots
             </a>
-            <a className="nav-link" onClick={() => navigate("/developers")}>
+            {/* <a className="nav-link" onClick={() => navigate("/developers")}>
               Developers
             </a>
             <a className="nav-link" onClick={() => navigate("/resources")}>
               Resources
-            </a>
+            </a> */}
             <a className="nav-link" onClick={() => navigate("/faq")}>
               FAQ
             </a>
