@@ -129,34 +129,48 @@ class PDFProcessor:
 
     def _extract_table(self, page_num, table_num):
         """Extract a specific table from a page and check for continuation."""
-        with pdfplumber.open(self.file_path) as pdf:
-            table_page = pdf.pages[page_num]
-            tables = table_page.extract_tables()
-            # Obtain the current table
-            current_table = tables[table_num]
-            
-            # Check if the current table continues on next page
-            # 0. make sure the current table is the last table of the page so there is chance for continuation
-            if table_num == len(tables)-1:
-                # 1. check if there are still pages left
-                if page_num + 1 < len(pdf.pages):
-                    next_page = pdf.pages[page_num + 1]
-                    next_page_tables = next_page.extract_tables()
-                    # 2. check if the next page has tables
-                    if len(next_page_tables) > 0:
-                        # 3. check if the current table continues on the next page (check if the first table of the next page is a continuation of the current table)
-                        if self._is_table_continued(current_table, next_page_tables[0]):
-                            # 4. Recursively extract and merge with continuation
-                            continuation = self._extract_table(page_num + 1, 0)
-                            if continuation:
-                                self.processed_tables.add((page_num + 1, 0))
-                                # print("CONTINUATION FROM PAGE: ", page_num, " TABLE: ", table_num, " FOUND ON PAGE: ", page_num + 1, " TABLE: ", 0)
-                                # print("ADDING CONTINUATION TO PROCESSED TABLES SET")
-                                # 5. merge the current table with the continuation
-                                return self._merge_tables(current_table, continuation)
-            
-            # Merge split rows within the table
-            return self._format_table(current_table)
+        try:
+            with pdfplumber.open(self.file_path) as pdf:
+                if page_num >= len(pdf.pages):
+                    return None
+                    
+                table_page = pdf.pages[page_num]
+                tables = table_page.extract_tables()
+                
+                # Safety check for table number
+                if not tables or table_num >= len(tables):
+                    return None
+                    
+                # Obtain the current table
+                current_table = tables[table_num]
+                
+                # Safety check for empty table
+                if not current_table or len(current_table) == 0:
+                    return None
+                
+                # Check if the current table continues on next page
+                # 0. make sure the current table is the last table of the page so there is chance for continuation
+                if table_num == len(tables)-1:
+                    # 1. check if there are still pages left
+                    if page_num + 1 < len(pdf.pages):
+                        next_page = pdf.pages[page_num + 1]
+                        next_page_tables = next_page.extract_tables()
+                        # 2. check if the next page has tables
+                        if next_page_tables and len(next_page_tables) > 0:
+                            # 3. check if the current table continues on the next page
+                            if self._is_table_continued(current_table, next_page_tables[0]):
+                                # 4. Recursively extract and merge with continuation
+                                continuation = self._extract_table(page_num + 1, 0)
+                                if continuation:
+                                    self.processed_tables.add((page_num + 1, 0))
+                                    # 5. merge the current table with the continuation
+                                    return self._merge_tables(current_table, continuation)
+                
+                # Merge split rows within the table
+                return self._format_table(current_table)
+        except Exception as e:
+            print(f"Error extracting table from page {page_num}, table {table_num}: {str(e)}")
+            return None
 
     def _table_converter(self, table):
         """Convert table into a formatted string."""
@@ -181,13 +195,31 @@ class PDFProcessor:
         return edges
 
     def _get_table_settings(self, page):
-        """Get settings for table detection using explicit lines."""
+        """Get settings for table detection using multiple strategies."""
+        # First try to get explicit lines from curves and edges
+        vertical_lines = self._curves_to_edges(page.curves + page.edges)
+        horizontal_lines = self._curves_to_edges(page.curves + page.edges)
+        
+        # If we have enough lines, use explicit strategy
+        if len(vertical_lines) >= 2 and len(horizontal_lines) >= 2:
+            return {
+                "vertical_strategy": "explicit",
+                "horizontal_strategy": "explicit",
+                "explicit_vertical_lines": vertical_lines,
+                "explicit_horizontal_lines": horizontal_lines,
+                "intersection_y_tolerance": 10,
+            }
+        
+        # Fallback to text-based strategy if not enough lines
         return {
-            "vertical_strategy": "explicit",
-            "horizontal_strategy": "explicit",
-            "explicit_vertical_lines": self._curves_to_edges(page.curves + page.edges),
-            "explicit_horizontal_lines": self._curves_to_edges(page.curves + page.edges),
+            "vertical_strategy": "text",
+            "horizontal_strategy": "text",
             "intersection_y_tolerance": 10,
+            "snap_tolerance": 3,
+            "join_tolerance": 3,
+            "edge_min_length": 3,
+            "min_words_vertical": 3,
+            "min_words_horizontal": 1
         }
 
     # =======================================================================
@@ -196,104 +228,95 @@ class PDFProcessor:
 
     def process_file(self):
         """Process PDF and extract text and tables."""
-        with pdfplumber.open(self.file_path) as pdf:
-
-            # store the text from all tables in the pdf
-            text_from_tables = []
-            # store the pure text and table markers for each page
-            pure_texts = []
-            
-            for pagenum, page in enumerate(pdf.pages):
+        try:
+            with pdfplumber.open(self.file_path) as pdf:
+                # store the text from all tables in the pdf
+                text_from_tables = []
+                # store the pure text and table markers for each page
+                pure_texts = []
                 
-                # get tables in the current page
-                tables = page.find_tables(table_settings=self._get_table_settings(page))
+                for pagenum, page in enumerate(pdf.pages):
+                    try:
+                        # get tables in the current page
+                        tables = page.find_tables(table_settings=self._get_table_settings(page))
+                        
+                        # Extract and process tables first
+                        for table_num, _ in enumerate(tables):
+                            # Skip if this table has already been processed
+                            if (pagenum, table_num) in self.processed_tables:
+                                text_from_tables.append("")
+                                continue
+                            
+                            curr_table = self._extract_table(pagenum, table_num)
+                            
+                            if curr_table:
+                                table_string = self._table_converter(curr_table)
+                                text_from_tables.append(table_string)
+                            else:
+                                text_from_tables.append("")
+                        
+                        # Get all table bounding boxes
+                        bboxes = [table.bbox for table in tables]
 
-                # print("***************************")
-                # print("page number: ", pagenum)                
-                # print("number of tables: ", len(tables))
-                # print("***************************")
+                        # Sort tables by vertical position (top to bottom)
+                        tables_with_pos = [(table.bbox[1], table) for table in tables]
+                        tables_with_pos.sort(reverse=True)
 
-                # ================================
-                # Extract tables from the page
-                # ================================
-                
-                # Extract and process tables first
-                for table_num, _ in enumerate(tables):
-                    # Skip if this table has already been processed (this can happen if this table is a continuation of a table from the previous page)
-                    if (pagenum, table_num) in self.processed_tables:
+                        # Get all text elements (words) with their positions
+                        words = page.extract_words()
+                        
+                        # Add table positions to the sequence
+                        elements = []
+                        for word in words:
+                            v_mid = (word["top"] + word["bottom"]) / 2
+                            h_mid = (word["x0"] + word["x1"]) / 2
+                            # Check if the word is within the table boundaries
+                            in_any_table = False
+                            for bbox in bboxes:
+                                x0, top, x1, bottom = bbox
+                                if (h_mid >= x0 and h_mid < x1 and v_mid >= top and v_mid < bottom):
+                                    in_any_table = True
+                                    break
+                            # If the word is not within any table, add it to the elements
+                            if not in_any_table:
+                                elements.append({
+                                    "top": word["top"],
+                                    "content": word["text"] + " "
+                                })
+                        
+                        # Add table markers
+                        for _, table in tables_with_pos:
+                            elements.append({
+                                "top": table.bbox[1],
+                                "content": "\n[[TABLE]]\n"
+                            })
+                        
+                        # Sort all elements by vertical position (top to bottom)
+                        elements.sort(key=lambda x: x["top"])
+                        # Combine all content
+                        pure_texts.append("".join(element["content"] for element in elements))
+                    except Exception as e:
+                        print(f"Error processing page {pagenum}: {str(e)}")
+                        pure_texts.append("")
                         text_from_tables.append("")
-                        # print("SKIPPING TABLE EXTRACTION - PAGE: ", pagenum, " TABLE: ", table_num)
-                        continue
-                    
-                    # print("STARTING TABLE EXTRACTION - PAGE: ", pagenum, " TABLE: ", table_num)
-                    curr_table = self._extract_table(pagenum, table_num)
-                    # print("FINISHED TABLE EXTRACTION - PAGE: ", pagenum, " TABLE: ", table_num)
-                    
-                    if curr_table:
-                        table_string = self._table_converter(curr_table)
-                        text_from_tables.append(table_string)
                 
-                # ================================
-                # Extract pure text from the page
-                # ================================
-
-                # Get all table bounding boxes
-                bboxes = [table.bbox for table in tables]
-
-                # Sort tables by vertical position (top to bottom)
-                tables_with_pos = [(table.bbox[1], table) for table in tables]  # bbox = (x0, top, x1, bottom)
-                tables_with_pos.sort(reverse=True)  # Sort from top to bottom
-
-                # Get all text elements (words) with their positions
-                words = page.extract_words()
+                # Ensure we have matching lengths
+                while len(pure_texts) > len(text_from_tables):
+                    text_from_tables.append("")
+                while len(text_from_tables) > len(pure_texts):
+                    pure_texts.append("")
                 
-                # Add table positions to the sequence
-                elements = []
-                for word in words:
-                    v_mid = (word["top"] + word["bottom"]) / 2
-                    h_mid = (word["x0"] + word["x1"]) / 2
-                    # Check if the word is within the table boundaries
-                    in_any_table = False
-                    for bbox in bboxes:
-                        x0, top, x1, bottom = bbox
-                        if (h_mid >= x0 and h_mid < x1 and v_mid >= top and v_mid < bottom):
-                            in_any_table = True
-                            break
-                    # If the word is not within any table, add it to the elements
-                    if not in_any_table:
-                        elements.append({
-                            "top": word["top"],
-                            "content": word["text"] + " "
-                        })
-                
-                # Add table markers
-                for _, table in tables_with_pos:
-                    elements.append({
-                        "top": table.bbox[1],  # Use top of table for positioning
-                        "content": "\n[[TABLE]]\n"
-                    })
-                
-                # Sort all elements by vertical position (top to bottom)
-                elements.sort(key=lambda x: x["top"])
-                # Combine all content
-                pure_texts.append("".join(element["content"] for element in elements))
-            
-            # join the pure texts and text from tables
-            # print("table count from <pure_texts>: ", sum(page.count('[[TABLE]]') for page in pure_texts))
-            # print("table count from <text_from_tables>: ", len(text_from_tables))
-            
-            if len(pure_texts) != len(text_from_tables):
-                raise ValueError("Not enough table entries for the number of placeholders.")
-            
-            table_iter = iter(text_from_tables)
+                table_iter = iter(text_from_tables)
 
-            # Replace each [[TABLE]] in each string using regex and the next table name
-            def replace_table(match):
-                try:
-                    return next(table_iter)
-                except StopIteration:
-                    raise ValueError("Not enough table entries for the number of placeholders.")
+                # Replace each [[TABLE]] in each string using regex and the next table name
+                def replace_table(match):
+                    try:
+                        return next(table_iter)
+                    except StopIteration:
+                        return ""
 
-            combined_result = [re.sub(r'\[\[TABLE\]\]', replace_table, s) for s in pure_texts]
-            # print(combined_result)
-            return " ".join(combined_result)
+                combined_result = [re.sub(r'\[\[TABLE\]\]', replace_table, s) for s in pure_texts]
+                return " ".join(combined_result)
+        except Exception as e:
+            print(f"Error processing PDF file: {str(e)}")
+            return ""
