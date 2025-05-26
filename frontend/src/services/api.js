@@ -4,7 +4,7 @@ import { logout } from "./apiService"; // Import the logout function from apiSer
 // Create an Axios instance
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_BASE_URL,
-  timeout: 10000,
+  timeout: 30000,
   headers: { "Content-Type": "application/json" },
 });
 
