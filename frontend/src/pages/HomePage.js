@@ -184,8 +184,8 @@ function HomePage() {
             </p>
             <div className="code-snippet">
               <code>
-                &lt;script
-                src="https://gasy.ai/chatbot/YOUR_BOT_ID"&gt;&lt;/script&gt;
+                &lt;iframe src="http://localhost:3000/embed-chat/botId"&gt;
+                &lt;/iframe&gt;
               </code>
             </div>
             <ul className="embed-benefits">
