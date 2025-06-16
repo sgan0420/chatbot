@@ -184,7 +184,8 @@ function HomePage() {
             </p>
             <div className="code-snippet">
               <code>
-                &lt;iframe src="https://chatbot-69x9.onrender.com/embed-chat/botId"&gt;
+                &lt;iframe
+                src="https://chatbot-69x9.onrender.com/embed-chat/botId"&gt;
                 &lt;/iframe&gt;
               </code>
             </div>
