@@ -22,7 +22,7 @@ const EmbedPage = () => {
   }, []);
 
   const embedCode = `<iframe 
-  src="http://localhost:3000/embed-chat/${botId}" 
+  src="https://chatbot-69x9.onrender.com/embed-chat/${botId}" 
   style="width: 100%; height: 500px; border: none;" 
   title="Chatbot">
 </iframe>`;
