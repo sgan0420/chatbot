@@ -73,7 +73,7 @@ const EmbedPage = () => {
 
           {/* Floating Chat iframe (always created but toggled) */}
           <iframe
-            src={`http://localhost:3000/embed-chat/${botId}`}
+            src={`https://chatbot-69x9.onrender.com/embed-chat/${botId}`}
             className="fixed bottom-20 right-4 w-96 h-[600px] shadow-lg border border-gray-300 rounded-2xl overflow-hidden z-40"
             style={{
               border: "none",
