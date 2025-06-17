@@ -1,0 +1,13 @@
+{
+  "public": "build",
+  "redirects": [
+    {
+      "source": "/embed-chat/**",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/*",
+      "destination": "/index.html"
+    }
+  ]
+}
